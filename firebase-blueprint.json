@@ -1,0 +1,57 @@
+{
+  "entities": {
+    "Material": {
+      "title": "Material",
+      "description": "Housekeeping material item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "unit": { "type": "string" },
+        "currentStock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "lastUpdated": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "unit", "currentStock"]
+    },
+    "Building": {
+      "title": "Building",
+      "description": "Building or block",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Stock movement transaction",
+      "type": "object",
+      "properties": {
+        "materialId": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "quantity": { "type": "number" },
+        "buildingId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["materialId", "type", "quantity", "timestamp"]
+    }
+  },
+  "firestore": {
+    "materials": {
+      "schema": "Material",
+      "description": "Collection of housekeeping materials"
+    },
+    "buildings": {
+      "schema": "Building",
+      "description": "Collection of buildings"
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Log of stock transactions"
+    }
+  }
+}

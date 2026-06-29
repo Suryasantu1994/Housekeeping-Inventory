@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "Material": {
+      "title": "Material",
+      "description": "Represents a housekeeping material in stock.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the material (e.g., Bleach, Towels)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the material (e.g., Cleaning, Linens, Guest Supplies)",
+          "enum": ["Cleaning Supplies", "Linens", "Guest Supplies", "Toiletries", "Other"]
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (e.g., Liters, Pieces, Boxes)"
+        },
+        "currentStock": {
+          "type": "number",
+          "description": "Current quantity in stock"
+        },
+        "minStock": {
+          "type": "number",
+          "description": "Minimum stock level for alerts"
+        },
+        "lastRestocked": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of the last restock"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp of creation"
+        }
+      },
+      "required": ["name", "category", "unit", "currentStock", "minStock"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Logs an entry or exit of material stock.",
+      "type": "object",
+      "properties": {
+        "materialId": {
+          "type": "string",
+          "description": "ID of the associated material"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["in", "out"],
+          "description": "Whether stock was added or removed"
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Amount of stock moved"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the transaction occurred"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional note about the transaction"
+        }
+      },
+      "required": ["materialId", "type", "quantity", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Collection of materials"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Log of all stock movements"
+    }
+  }
+}
