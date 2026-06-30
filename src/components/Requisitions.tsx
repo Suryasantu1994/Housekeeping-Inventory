@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Requisition, RequisitionStatus, Material, RequisitionItem, Building } from '../types';
-import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus } from 'lucide-react';
+import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -15,11 +15,13 @@ export default function Requisitions() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [filterDate, setFilterDate] = useState<string>('');
 
   const [formData, setFormData] = useState({
     building: '',
     items: [{ materialId: '', quantity: 1 }] as { materialId: string; quantity: number }[],
     requesterName: '',
+    date: new Date().toISOString().split('T')[0],
     note: ''
   });
 
@@ -109,6 +111,7 @@ export default function Requisitions() {
         items: validItems,
         requesterName: formData.requesterName || currentUser?.displayName || 'Anonymous',
         userId: currentUser?.uid,
+        date: formData.date,
         note: formData.note,
         status: 'pending',
         timestamp: new Date().toISOString()
@@ -118,6 +121,7 @@ export default function Requisitions() {
         building: '', 
         items: [{ materialId: '', quantity: 1 }], 
         requesterName: '', 
+        date: new Date().toISOString().split('T')[0],
         note: '' 
       });
     } catch (error) {
@@ -181,6 +185,12 @@ export default function Requisitions() {
     }
   };
 
+  const filteredRequisitions = requisitions.filter(req => {
+    if (!filterDate) return true;
+    const reqDate = req.date || new Date(req.timestamp).toISOString().split('T')[0];
+    return reqDate === filterDate;
+  });
+
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading requisitions...</div>;
   }
@@ -192,13 +202,33 @@ export default function Requisitions() {
           <h2 className="text-2xl font-black text-gray-900 tracking-tight">REQUISITIONS</h2>
           <p className="text-sm text-gray-500 font-medium">Manage material requests and approvals</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
-        >
-          <Plus className="w-5 h-5" />
-          New Request
-        </button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter Date:</span>
+            <input
+              type="date"
+              className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-gray-900 outline-none transition-all shadow-sm"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+            />
+            {filterDate && (
+              <button
+                onClick={() => setFilterDate('')}
+                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                title="Clear Date Filter"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
+          >
+            <Plus className="w-5 h-5" />
+            New Request
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -282,6 +312,17 @@ export default function Requisitions() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Requisition Date</label>
+                  <input
+                    required
+                    type="date"
+                    className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-gray-900 outline-none transition-all"
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">Requester Name</label>
                   <input
                     required
@@ -314,7 +355,7 @@ export default function Requisitions() {
       </AnimatePresence>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {requisitions.map((req) => (
+        {filteredRequisitions.map((req) => (
           <motion.div
             key={req.id}
             initial={{ opacity: 0, y: 10 }}
@@ -325,9 +366,16 @@ export default function Requisitions() {
               <div className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusColor(req.status)}`}>
                 {req.status}
               </div>
-              <div className="text-[10px] font-bold text-gray-400 flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {new Date(req.timestamp).toLocaleDateString()}
+              <div className="text-[10px] font-bold text-gray-400 flex flex-col items-end gap-0.5">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {new Date(req.timestamp).toLocaleDateString()}
+                </div>
+                {req.date && (
+                  <div className="bg-gray-100 px-1.5 py-0.5 rounded text-gray-600">
+                    Req Date: {new Date(req.date).toLocaleDateString()}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -426,7 +474,7 @@ export default function Requisitions() {
             </div>
           </motion.div>
         ))}
-        {requisitions.length === 0 && (
+        {filteredRequisitions.length === 0 && (
           <div className="col-span-full py-20 bg-white rounded-3xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
             <FileText className="w-12 h-12 mb-4 opacity-20" />
             <p className="font-medium">No requisitions found</p>

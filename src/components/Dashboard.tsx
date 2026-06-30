@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Material, StockAlert, Transaction, Building, MaterialCategory } from '../types';
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, ClipboardList, Wallet, Receipt, Building2, PieChart, TrendingUp } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, ClipboardList, Wallet, Receipt, Building2, PieChart, TrendingUp, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 export default function Dashboard() {
@@ -11,6 +11,7 @@ export default function Dashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filterDate, setFilterDate] = useState<string>('');
 
   useEffect(() => {
     const materialsPath = 'materials';
@@ -98,6 +99,12 @@ export default function Dashboard() {
 
   const totalStockValue = materials.reduce((acc, m) => acc + ((Number(m.currentStock) || 0) * (Number(m.unitPrice) || 0)), 0);
   
+  const dateFilteredTransactions = transactions.filter(t => {
+    if (!filterDate) return true;
+    const tDate = new Date(t.timestamp).toISOString().split('T')[0];
+    return tDate === filterDate;
+  });
+
   const totalIssuedValue = transactions
     .filter(t => t.type === 'out')
     .reduce((acc, t) => {
@@ -106,7 +113,28 @@ export default function Dashboard() {
       return acc + ((Number(t.quantity) || 0) * unitPrice);
     }, 0);
 
-  const consumptionTrends = transactions
+  const [showIndentModal, setShowIndentModal] = useState(false);
+  const totalStockIndent = totalStockValue + totalIssuedValue;
+
+  const categoryBreakdown = materials.reduce((acc, m) => {
+    const category = m.category || 'Other';
+    if (!acc[category]) acc[category] = { stockValue: 0, issuedValue: 0 };
+    acc[category].stockValue += (Number(m.currentStock) || 0) * (Number(m.unitPrice) || 0);
+    return acc;
+  }, {} as Record<string, { stockValue: number; issuedValue: number }>);
+
+  transactions
+    .filter(t => t.type === 'out')
+    .forEach(t => {
+      const material = materials.find(m => m.id === t.materialId);
+      const category = material?.category || 'Other';
+      if (!categoryBreakdown[category]) {
+        categoryBreakdown[category] = { stockValue: 0, issuedValue: 0 };
+      }
+      categoryBreakdown[category].issuedValue += (Number(t.quantity) || 0) * (Number(material?.unitPrice) || 0);
+    });
+
+  const consumptionTrends = dateFilteredTransactions
     .filter(t => t.type === 'out')
     .reduce((acc: any[], t) => {
       const date = new Date(t.timestamp);
@@ -135,7 +163,34 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Dashboard Overview</h2>
+          <p className="text-sm text-gray-500 font-medium italic">Key performance indicators & inventory insights</p>
+        </div>
+        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm self-start">
+          <div className="flex items-center gap-2 px-3">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter:</span>
+            <input
+              type="date"
+              className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none p-0 cursor-pointer"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+            />
+          </div>
+          {filterDate && (
+            <button
+              onClick={() => setFilterDate('')}
+              className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+              title="Clear Filter"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -202,7 +257,93 @@ export default function Dashboard() {
             </div>
           </div>
         </motion.div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          onClick={() => setShowIndentModal(true)}
+          className="bg-white p-6 rounded-2xl border border-gray-900 shadow-sm ring-1 ring-gray-900/5 cursor-pointer hover:bg-gray-50 transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gray-900 rounded-xl group-hover:scale-110 transition-transform">
+              <PieChart className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-500">Total Stock Indent</p>
+              <h3 className="text-2xl font-bold text-gray-900">₹{totalStockIndent.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+            </div>
+          </div>
+        </motion.div>
       </div>
+
+      <AnimatePresence>
+        {showIndentModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowIndentModal(false)}
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-900 text-white">
+                <div>
+                  <h2 className="text-2xl font-black uppercase tracking-tight">Stock Indent Breakdown</h2>
+                  <p className="text-gray-400 text-xs font-bold mt-1 tracking-widest uppercase">Current Stock + Issued Values</p>
+                </div>
+                <button 
+                  onClick={() => setShowIndentModal(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-8 max-h-[60vh] overflow-y-auto">
+                <div className="space-y-4">
+                  {(Object.entries(categoryBreakdown) as [string, { stockValue: number; issuedValue: number }][])
+                    .sort((a, b) => (b[1].stockValue + b[1].issuedValue) - (a[1].stockValue + a[1].issuedValue))
+                    .map(([category, values]) => {
+                      const total = values.stockValue + values.issuedValue;
+                      return (
+                        <div key={category} className="p-4 bg-gray-50 rounded-2xl flex items-center justify-between group hover:bg-blue-50 transition-colors">
+                          <div>
+                            <h4 className="font-bold text-gray-900 tracking-tight">{category}</h4>
+                            <div className="flex gap-4 mt-1">
+                              <span className="text-[10px] font-bold text-gray-400 uppercase">Stock: ₹{values.stockValue.toLocaleString()}</span>
+                              <span className="text-[10px] font-bold text-gray-400 uppercase">Issued: ₹{values.issuedValue.toLocaleString()}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-lg font-black text-gray-900">₹{total.toLocaleString()}</div>
+                            <div className="w-32 h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-600 rounded-full transition-all duration-1000"
+                                style={{ width: `${(total / totalStockIndent) * 100}%` }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+
+              <div className="p-8 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-sm font-black text-gray-500 uppercase tracking-widest">Total Valuation</span>
+                <span className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalStockIndent.toLocaleString()}</span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -279,7 +420,7 @@ export default function Dashboard() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {buildings.map((building) => {
-                const buildingTransactions = transactions.filter(t => t.building === building.name && t.type === 'out');
+                const buildingTransactions = dateFilteredTransactions.filter(t => t.building?.trim() === building.name.trim() && t.type === 'out');
                 
                 const buildingTotalValue = buildingTransactions.reduce((acc, t) => {
                   const material = materials.find(m => m.id === t.materialId);

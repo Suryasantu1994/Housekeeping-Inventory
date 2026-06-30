@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Transaction, Building } from '../types';
-import { Clock, ArrowUpRight, ArrowDownRight, Trash2, Building2, ChevronRight, ArrowLeft } from 'lucide-react';
+import { Clock, ArrowUpRight, ArrowDownRight, Trash2, Building2, ChevronRight, ArrowLeft, User as UserIcon, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function TransactionHistory() {
@@ -11,6 +11,7 @@ export default function TransactionHistory() {
   const [loading, setLoading] = useState(true);
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [filterDate, setFilterDate] = useState<string>('');
 
   useEffect(() => {
     const tPath = 'transactions';
@@ -57,16 +58,21 @@ export default function TransactionHistory() {
 
   const buildingGroups = buildings.map(b => ({
     name: b.name,
-    count: transactions.filter(t => t.building === b.name).length
+    count: transactions.filter(t => t.building?.trim() === b.name.trim()).length
   }));
 
-  const globalTransactionsCount = transactions.filter(t => !t.building).length;
+  const globalTransactionsCount = transactions.filter(t => !t.building || t.building === 'General Inventory').length;
 
-  const filteredTransactions = selectedBuilding === 'General Inventory' 
-    ? transactions.filter(t => !t.building)
+  const filteredTransactions = (selectedBuilding === 'General Inventory' 
+    ? transactions.filter(t => !t.building || t.building === 'General Inventory')
     : selectedBuilding 
-      ? transactions.filter(t => t.building === selectedBuilding)
-      : [];
+      ? transactions.filter(t => t.building?.trim() === selectedBuilding.trim())
+      : [])
+    .filter(t => {
+      if (!filterDate) return true;
+      const tDate = new Date(t.timestamp).toISOString().split('T')[0];
+      return tDate === filterDate;
+    });
 
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading activity logs...</div>;
@@ -140,6 +146,25 @@ export default function TransactionHistory() {
                 <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">{selectedBuilding}</h2>
                 <p className="text-sm text-gray-500 font-medium">Detailed activity logs</p>
               </div>
+              <div className="flex-1" />
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter Date:</span>
+                <input
+                  type="date"
+                  className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-gray-900 outline-none transition-all shadow-sm"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                />
+                {filterDate && (
+                  <button
+                    onClick={() => setFilterDate('')}
+                    className="p-2 text-gray-400 hover:text-red-600 transition-colors"
+                    title="Clear Date Filter"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
@@ -158,10 +183,18 @@ export default function TransactionHistory() {
                           )}
                         </div>
                         <div className="flex-1">
-                          <h4 className="font-black text-gray-900 text-lg">{t.materialName}</h4>
-                          <div className="flex items-center gap-2 text-xs text-gray-500 font-medium mt-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(t.timestamp).toLocaleString()}
+                          <h4 className="font-black text-gray-900 text-lg">{t.materialName || 'Unknown Item'}</h4>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                            <div className="flex items-center gap-1.5 text-xs text-gray-500 font-medium">
+                              <Clock className="w-3.5 h-3.5" />
+                              {new Date(t.timestamp).toLocaleString()}
+                            </div>
+                            {t.userName && (
+                              <div className="flex items-center gap-1.5 text-xs text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full">
+                                <UserIcon className="w-3 h-3" />
+                                {t.userName}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="text-right flex items-center gap-6">

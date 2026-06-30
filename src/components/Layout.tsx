@@ -30,24 +30,50 @@ export default function Layout() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] p-4">
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
           className="bg-white p-10 rounded-[2.5rem] shadow-2xl shadow-gray-200 w-full max-w-md text-center border border-gray-100"
         >
-          <div className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mx-auto mb-8 border border-gray-100 shadow-sm p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+            animate={{ opacity: 1, scale: 1, rotate: 0 }}
+            transition={{ delay: 0.2, type: "spring", stiffness: 260, damping: 20 }}
+            className="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mx-auto mb-8 border border-gray-100 shadow-sm p-4"
+          >
             <img src={logo} alt="Logo" className="w-full h-full object-contain" />
-          </div>
-          <h1 className="text-3xl font-black text-gray-900 mb-3 tracking-tight">HK MATERIALS</h1>
-          <p className="text-gray-500 font-medium mb-10 leading-relaxed">
+          </motion.div>
+          
+          <motion.h1 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="text-3xl font-black text-gray-900 mb-3 tracking-tight"
+          >
+            HK MATERIALS
+          </motion.h1>
+          
+          <motion.p 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="text-gray-500 font-medium mb-10 leading-relaxed"
+          >
             Please sign in with your institutional account to manage inventory.
-          </p>
-          <button
+          </motion.p>
+          
+          <motion.button
+            whileHover={{ scale: 1.02, backgroundColor: "#000000" }}
+            whileTap={{ scale: 0.98 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
             onClick={signInWithGoogle}
-            className="w-full flex items-center justify-center gap-4 bg-gray-900 text-white py-4 px-6 rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-gray-200"
+            className="w-full flex items-center justify-center gap-4 bg-gray-900 text-white py-4 px-6 rounded-2xl font-bold transition-all shadow-xl shadow-gray-200"
           >
             <LogIn className="w-6 h-6" />
             Continue with Google
-          </button>
+          </motion.button>
         </motion.div>
       </div>
     );

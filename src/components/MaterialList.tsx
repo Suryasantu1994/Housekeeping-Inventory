@@ -116,6 +116,14 @@ export default function MaterialList() {
     }
   };
 
+  const categories: MaterialCategory[] = ['Cleaning Supplies', 'Linens', 'Guest Supplies', 'Toiletries', 'Tools', 'Other'];
+
+  const groupedMaterials = filteredMaterials.reduce((acc, m) => {
+    if (!acc[m.category]) acc[m.category] = [];
+    acc[m.category].push(m);
+    return acc;
+  }, {} as Record<string, Material[]>);
+
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading inventory...</div>;
   }
@@ -140,12 +148,9 @@ export default function MaterialList() {
             onChange={(e) => setSelectedCategory(e.target.value as any)}
           >
             <option value="All">All Categories</option>
-            <option value="Cleaning Supplies">Cleaning Supplies</option>
-            <option value="Linens">Linens</option>
-            <option value="Guest Supplies">Guest Supplies</option>
-            <option value="Toiletries">Toiletries</option>
-            <option value="Tools">Tools</option>
-            <option value="Other">Other</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
           </select>
           <button
             onClick={exportToCSV}
@@ -164,83 +169,105 @@ export default function MaterialList() {
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-100">
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Unit</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Unit Price</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Stock</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredMaterials.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/30 transition-colors group">
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-gray-900">{item.name}</p>
-                    <p className="text-xs text-gray-400">Unit: {item.unit}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
-                      {item.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`text-lg font-bold ${
-                      item.currentStock <= item.minStock ? 'text-red-600' : 'text-gray-900'
-                    }`}>
-                      {item.currentStock}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    {item.currentStock <= item.minStock ? (
-                      <span className="flex items-center gap-1.5 text-red-600 text-xs font-bold uppercase">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Low Stock
-                      </span>
-                    ) : (
-                      <span className="text-green-600 text-xs font-bold uppercase">In Stock</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end gap-2">
-                      <button 
-                        type="button"
-                        onClick={() => setUpdateModal({ id: item.id, name: item.name })}
-                        className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
-                        title="Adjust Stock"
-                      >
-                        <PackagePlus className="w-4 h-4" />
-                      </button>
-                      
-                      {deleteConfirm === item.id ? (
-                        <div className="flex items-center gap-1 bg-red-50 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(item.id)}
-                            className="px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded uppercase hover:bg-red-700 transition-colors"
-                          >
-                            Delete
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setDeleteConfirm(null)}
-                            className="px-2 py-1 text-gray-400 text-[10px] font-bold rounded uppercase hover:text-gray-600"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      ) : (
-                        <button 
-                          type="button"
-                          onClick={() => setDeleteConfirm(item.id)}
-                          className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
+              {categories.map(category => {
+                const items = groupedMaterials[category];
+                if (!items || items.length === 0) return null;
+
+                return (
+                  <React.Fragment key={category}>
+                    <tr className="bg-gray-50/50">
+                      <td colSpan={6} className="px-6 py-2 border-y border-gray-100/50">
+                        <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em]">{category}</span>
+                      </td>
+                    </tr>
+                    {items.map((item) => (
+                      <tr key={item.id} className="hover:bg-gray-50/30 transition-colors group">
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-gray-900">{item.name}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-500 font-medium">{item.unit}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-sm text-gray-900 font-bold">₹{Number(item.unitPrice || 0).toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className={`text-lg font-bold ${
+                            item.currentStock <= item.minStock ? 'text-red-600' : 'text-gray-900'
+                          }`}>
+                            {item.currentStock}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          {item.currentStock <= item.minStock ? (
+                            <span className="flex items-center gap-1.5 text-red-600 text-xs font-bold uppercase">
+                              <AlertTriangle className="w-3.5 h-3.5" />
+                              Low Stock
+                            </span>
+                          ) : (
+                            <span className="text-green-600 text-xs font-bold uppercase">In Stock</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center justify-end gap-2">
+                            <button 
+                              type="button"
+                              onClick={() => setUpdateModal({ id: item.id, name: item.name })}
+                              className="p-2 hover:bg-blue-50 text-blue-600 rounded-lg transition-colors"
+                              title="Adjust Stock"
+                            >
+                              <PackagePlus className="w-4 h-4" />
+                            </button>
+                            
+                            {deleteConfirm === item.id ? (
+                              <div className="flex items-center gap-1 bg-red-50 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDelete(item.id)}
+                                  className="px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded uppercase hover:bg-red-700 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setDeleteConfirm(null)}
+                                  className="px-2 py-1 text-gray-400 text-[10px] font-bold rounded uppercase hover:text-gray-600"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button 
+                                type="button"
+                                onClick={() => setDeleteConfirm(item.id)}
+                                className="p-2 hover:bg-red-50 text-red-600 rounded-lg transition-colors"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+              {filteredMaterials.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-12 text-center text-gray-400 font-medium">
+                    No materials found matching your criteria.
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
@@ -261,14 +288,22 @@ export default function MaterialList() {
               <div className="flex items-center justify-center gap-6 mb-8">
                 <button 
                   onClick={() => setUpdateAmount(prev => Math.max(1, prev - 1))}
-                  className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                  className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors shrink-0"
                 >
                   <Minus className="w-6 h-6" />
                 </button>
-                <span className="text-4xl font-black text-gray-900 tabular-nums">{updateAmount}</span>
+                <div className="relative flex flex-col items-center">
+                  <input
+                    type="number"
+                    value={updateAmount}
+                    onChange={(e) => setUpdateAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-24 text-center text-4xl font-black text-gray-900 tabular-nums bg-transparent border-none focus:ring-0 outline-none p-0"
+                  />
+                  <div className="h-0.5 w-16 bg-gray-100 mt-1"></div>
+                </div>
                 <button 
                   onClick={() => setUpdateAmount(prev => prev + 1)}
-                  className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
+                  className="w-12 h-12 flex items-center justify-center bg-gray-100 rounded-full hover:bg-gray-200 transition-colors shrink-0"
                 >
                   <Plus className="w-6 h-6" />
                 </button>

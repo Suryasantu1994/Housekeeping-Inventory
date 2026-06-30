@@ -22,6 +22,8 @@ export interface Transaction {
   timestamp: string;
   note?: string;
   building?: string;
+  userId?: string;
+  userName?: string;
 }
 
 export type RequisitionStatus = 'pending' | 'approved' | 'rejected' | 'completed';
@@ -39,6 +41,7 @@ export interface Requisition {
   status: RequisitionStatus;
   requesterName: string;
   timestamp: string;
+  date: string;
   note?: string;
 }
 
