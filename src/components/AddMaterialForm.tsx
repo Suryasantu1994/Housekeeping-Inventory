@@ -23,6 +23,8 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const totalValue = formData.currentStock * formData.unitPrice;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -43,28 +45,38 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
+      />
       <motion.div 
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl relative"
+        initial={{ y: 40, opacity: 0, scale: 0.9 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] relative border border-gray-100"
       >
         <button 
           onClick={onClose}
-          className="absolute right-6 top-6 p-2 hover:bg-gray-100 rounded-full text-gray-400 transition-colors"
+          className="absolute right-8 top-8 p-3 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all"
         >
           <X className="w-5 h-5" />
         </button>
 
-        <h3 className="text-2xl font-bold text-gray-900 mb-6">New Material</h3>
+        <div className="mb-8">
+          <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight leading-none">New Material</h3>
+          <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">Register a new inventory item</p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Item Name</label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Item Name</label>
             <input
               required
               type="text"
-              className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
               placeholder="e.g., Hand Soap"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
@@ -72,10 +84,10 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Category</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Category</label>
               <select
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer shadow-inner appearance-none"
                 value={formData.category}
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as any }))}
               >
@@ -87,13 +99,13 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
                 <option value="Other">Other</option>
               </select>
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Unit</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Unit</label>
               <input
                 required
                 type="text"
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                placeholder="e.g., Liters"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                placeholder="e.g., Pieces"
                 value={formData.unit}
                 onChange={(e) => setFormData(prev => ({ ...prev, unit: e.target.value }))}
               />
@@ -101,51 +113,61 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Initial Stock</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Initial Stock</label>
               <input
                 required
                 type="number"
                 min="0"
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
                 value={formData.currentStock}
                 onChange={(e) => setFormData(prev => ({ ...prev, currentStock: parseInt(e.target.value) || 0 }))}
               />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Unit Price (₹)</label>
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Unit Price (₹)</label>
               <input
                 required
                 type="number"
                 min="0"
                 step="0.01"
-                className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
                 value={formData.unitPrice}
                 onChange={(e) => setFormData(prev => ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }))}
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Min. Stock Level</label>
-            <input
-              required
-              type="number"
-              min="0"
-              className="w-full px-4 py-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-              value={formData.minStock}
-              onChange={(e) => setFormData(prev => ({ ...prev, minStock: parseInt(e.target.value) || 0 }))}
-            />
+          <div className="grid grid-cols-2 gap-4 items-end">
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Min. Stock</label>
+              <input
+                required
+                type="number"
+                min="0"
+                className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                value={formData.minStock}
+                onChange={(e) => setFormData(prev => ({ ...prev, minStock: parseInt(e.target.value) || 0 }))}
+              />
+            </div>
+            <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100 flex flex-col justify-center">
+              <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1">Total Valuation</span>
+              <span className="text-lg font-black text-blue-600 tracking-tighter">
+                ₹{totalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              </span>
+            </div>
           </div>
 
-          <button
-            disabled={isSubmitting}
-            type="submit"
-            className="w-full py-4 bg-gray-900 text-white rounded-2xl font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-          >
-            <Save className="w-5 h-5" />
-            {isSubmitting ? 'Saving...' : 'Save Material'}
-          </button>
+          <div className="pt-4">
+            <button
+              disabled={isSubmitting}
+              type="submit"
+              className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
+            >
+              <Save className="w-5 h-5" />
+              {isSubmitting ? 'Saving...' : 'Save Material'}
+            </button>
+          </div>
         </form>
       </motion.div>
     </div>
