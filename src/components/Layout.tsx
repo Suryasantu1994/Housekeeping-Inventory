@@ -5,12 +5,13 @@ import logo from '../assets/images/hk_logo_1782666998761.jpg';
 import Dashboard from './Dashboard';
 import MaterialList from './MaterialList';
 import TransactionHistory from './TransactionHistory';
+import IssuanceCalendar from './IssuanceCalendar';
 import AddMaterialForm from './AddMaterialForm';
 import Requisitions from './Requisitions';
 import SettingsView from './Settings';
 import { useAuth } from '../contexts/AuthContext';
 
-type View = 'dashboard' | 'inventory' | 'history' | 'requisitions' | 'settings';
+type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'settings';
 
 export default function Layout() {
   const { user, loading, signInWithGoogle, logout } = useAuth();
@@ -51,7 +52,7 @@ export default function Layout() {
             className="text-3xl font-black text-gray-900 mb-3 tracking-tight"
           >
             HK MATERIALS
-          </motion.h1>
+            </motion.h1>
           
           <motion.p 
             initial={{ opacity: 0, y: 10 }}
@@ -83,6 +84,7 @@ export default function Layout() {
     { name: 'Dashboard', icon: LayoutDashboard, view: 'dashboard' as View },
     { name: 'Inventory', icon: List, view: 'inventory' as View },
     { name: 'History', icon: History, view: 'history' as View },
+    { name: 'Issuance Calendar', icon: Bell, view: 'calendar' as View },
     { name: 'Requisitions', icon: FileText, view: 'requisitions' as View },
     { name: 'Settings', icon: Settings, view: 'settings' as View },
   ];
@@ -192,6 +194,7 @@ export default function Layout() {
           {currentView === 'dashboard' && <Dashboard />}
           {currentView === 'inventory' && <MaterialList />}
           {currentView === 'history' && <TransactionHistory />}
+          {currentView === 'calendar' && <IssuanceCalendar />}
           {currentView === 'requisitions' && <Requisitions />}
           {currentView === 'settings' && <SettingsView />}
         </div>

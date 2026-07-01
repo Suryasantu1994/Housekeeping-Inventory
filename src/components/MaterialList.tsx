@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, deleteDoc, doc, addDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Material, MaterialCategory } from '../types';
-import { Edit2, Trash2, Plus, Minus, Search, Filter, MoreHorizontal, PackagePlus, AlertTriangle, ArrowDownRight, ArrowUpRight, FileDown } from 'lucide-react';
+import { Edit2, Trash2, Plus, Minus, Search, Filter, MoreHorizontal, PackagePlus, AlertTriangle, ArrowDownRight, ArrowUpRight, FileDown, X, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,7 @@ export default function MaterialList() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'All'>('All');
   const [updateModal, setUpdateModal] = useState<{ id: string, name: string } | null>(null);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [updateAmount, setUpdateAmount] = useState(1);
 
   useEffect(() => {
@@ -113,6 +114,24 @@ export default function MaterialList() {
       setUpdateAmount(1);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'stock_update');
+    }
+  };
+
+  const handleEditMaterial = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMaterial) return;
+
+    const path = `materials/${editingMaterial.id}`;
+    try {
+      const { id, ...data } = editingMaterial;
+      await updateDoc(doc(db, 'materials', id), {
+        ...data,
+        updatedAt: serverTimestamp(),
+        updatedBy: currentUser?.uid
+      });
+      setEditingMaterial(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, path);
     }
   };
 
@@ -226,6 +245,15 @@ export default function MaterialList() {
                             >
                               <PackagePlus className="w-4 h-4" />
                             </button>
+
+                            <button 
+                              type="button"
+                              onClick={() => setEditingMaterial(item)}
+                              className="p-2 hover:bg-gray-100 text-gray-600 rounded-lg transition-colors"
+                              title="Edit Details"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
                             
                             {deleteConfirm === item.id ? (
                               <div className="flex items-center gap-1 bg-red-50 rounded-lg p-1 animate-in fade-in zoom-in duration-200">
@@ -331,6 +359,105 @@ export default function MaterialList() {
                   Cancel
                 </button>
               </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {editingMaterial && (
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 20, opacity: 0 }}
+              className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl relative border border-gray-100"
+            >
+              <button 
+                onClick={() => setEditingMaterial(null)}
+                className="absolute right-8 top-8 p-3 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+      
+              <div className="mb-8">
+                <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight">Edit Material</h3>
+                <p className="text-xs font-bold text-gray-400 mt-1 uppercase tracking-widest">Update item details</p>
+              </div>
+      
+              <form onSubmit={handleEditMaterial} className="space-y-6">
+                <div>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Item Name</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                    value={editingMaterial.name}
+                    onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
+                  />
+                </div>
+      
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Category</label>
+                    <select
+                      className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer shadow-inner appearance-none"
+                      value={editingMaterial.category}
+                      onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, category: e.target.value as any }) : null)}
+                    >
+                      {categories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Unit</label>
+                    <input
+                      required
+                      type="text"
+                      className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                      value={editingMaterial.unit}
+                      onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, unit: e.target.value }) : null)}
+                    />
+                  </div>
+                </div>
+      
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Unit Price (₹)</label>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                      value={editingMaterial.unitPrice}
+                      onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, unitPrice: parseFloat(e.target.value) || 0 }) : null)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Min. Stock</label>
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                      value={editingMaterial.minStock}
+                      onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, minStock: parseInt(e.target.value) || 0 }) : null)}
+                    />
+                  </div>
+                </div>
+      
+                <div className="pt-4">
+                  <button
+                    type="submit"
+                    className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-3 active:scale-95"
+                  >
+                    <Save className="w-5 h-5" />
+                    Save Changes
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </div>
         )}

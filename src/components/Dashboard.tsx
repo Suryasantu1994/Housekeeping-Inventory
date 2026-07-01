@@ -162,18 +162,21 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="space-y-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight uppercase">Dashboard Overview</h2>
-          <p className="text-sm text-gray-500 font-medium italic">Key performance indicators & inventory insights</p>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight uppercase leading-none">Dashboard</h2>
+          <p className="text-sm text-gray-500 font-bold mt-2 flex items-center gap-2 opacity-60">
+            <TrendingUp className="w-4 h-4" />
+            Inventory insights & performance
+          </p>
         </div>
-        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-gray-100 shadow-sm self-start">
-          <div className="flex items-center gap-2 px-3">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter:</span>
+        <div className="flex items-center gap-3 bg-white/80 backdrop-blur-md p-2 rounded-3xl border border-gray-100 shadow-xl shadow-gray-200/50 self-start ring-1 ring-black/5">
+          <div className="flex items-center gap-3 px-4 py-1">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter by Date</span>
             <input
               type="date"
-              className="bg-transparent border-none text-sm font-bold focus:ring-0 outline-none p-0 cursor-pointer"
+              className="bg-transparent border-none text-sm font-black text-gray-900 focus:ring-0 outline-none p-0 cursor-pointer"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
             />
@@ -181,7 +184,7 @@ export default function Dashboard() {
           {filterDate && (
             <button
               onClick={() => setFilterDate('')}
-              className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+              className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"
               title="Clear Filter"
             >
               <X className="w-4 h-4" />
@@ -190,88 +193,96 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileHover={{ y: -5, scale: 1.02 }}
+          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-blue-50 rounded-xl">
-              <Package className="w-6 h-6 text-blue-600" />
+          <div className="flex flex-col gap-4">
+            <div className="p-4 bg-blue-50 text-blue-600 rounded-[1.5rem] w-fit shadow-inner">
+              <Package className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Materials</p>
-              <h3 className="text-2xl font-bold text-gray-900">{totalItems}</h3>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Total Materials</p>
+              <h3 className="text-3xl font-black text-gray-900 tracking-tighter">{totalItems}</h3>
             </div>
           </div>
         </motion.div>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+          whileHover={{ y: -5, scale: 1.02 }}
+          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
         >
-          <div className="flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${lowStockCount > 0 ? 'bg-amber-50' : 'bg-green-50'}`}>
-              <AlertTriangle className={`w-6 h-6 ${lowStockCount > 0 ? 'text-amber-600' : 'text-green-600'}`} />
+          <div className="flex flex-col gap-4">
+            <div className={`p-4 rounded-[1.5rem] w-fit shadow-inner ${lowStockCount > 0 ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
+              <AlertTriangle className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Low Stock Items</p>
-              <h3 className="text-2xl font-bold text-gray-900">{lowStockCount}</h3>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Low Stock Items</p>
+              <h3 className={`text-3xl font-black tracking-tighter ${lowStockCount > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{lowStockCount}</h3>
             </div>
           </div>
         </motion.div>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+          whileHover={{ y: -5, scale: 1.02 }}
+          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-50 rounded-xl">
-              <Wallet className="w-6 h-6 text-emerald-600" />
+          <div className="flex flex-col gap-4">
+            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-[1.5rem] w-fit shadow-inner">
+              <Wallet className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Stock Value</p>
-              <h3 className="text-2xl font-bold text-gray-900">₹{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Stock Value</p>
+              <h3 className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
             </div>
           </div>
         </motion.div>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+          whileHover={{ y: -5, scale: 1.02 }}
+          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-purple-50 rounded-xl">
-              <Receipt className="w-6 h-6 text-purple-600" />
+          <div className="flex flex-col gap-4">
+            <div className="p-4 bg-purple-50 text-purple-600 rounded-[1.5rem] w-fit shadow-inner">
+              <Receipt className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Issued Value</p>
-              <h3 className="text-2xl font-bold text-gray-900">₹{totalIssuedValue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Issued Value</p>
+              <h3 className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalIssuedValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
             </div>
           </div>
         </motion.div>
 
         <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.4 }}
+          whileHover={{ y: -5, scale: 1.02 }}
           onClick={() => setShowIndentModal(true)}
-          className="bg-white p-6 rounded-2xl border border-gray-900 shadow-sm ring-1 ring-gray-900/5 cursor-pointer hover:bg-gray-50 transition-colors group"
+          className="bg-gray-900 p-7 rounded-[2rem] shadow-2xl shadow-gray-900/20 cursor-pointer hover:bg-gray-800 transition-all group overflow-hidden relative"
         >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gray-900 rounded-xl group-hover:scale-110 transition-transform">
-              <PieChart className="w-6 h-6 text-white" />
+          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-150 transition-transform duration-500">
+            <PieChart className="w-24 h-24 text-white" />
+          </div>
+          <div className="flex flex-col gap-4 relative z-10">
+            <div className="p-4 bg-white/10 text-white rounded-[1.5rem] w-fit backdrop-blur-md">
+              <PieChart className="w-7 h-7" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Total Stock Indent</p>
-              <h3 className="text-2xl font-bold text-gray-900">₹{totalStockIndent.toLocaleString(undefined, { minimumFractionDigits: 2 })}</h3>
+              <p className="text-xs font-black text-white/50 uppercase tracking-widest mb-1">Stock Indent</p>
+              <h3 className="text-3xl font-black text-white tracking-tighter">₹{totalStockIndent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
             </div>
           </div>
         </motion.div>
@@ -279,86 +290,86 @@ export default function Dashboard() {
 
       <AnimatePresence>
         {showIndentModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowIndentModal(false)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden"
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden"
             >
-              <div className="p-8 border-b border-gray-100 flex items-center justify-between bg-gray-900 text-white">
+              <div className="p-10 border-b border-gray-100 flex items-center justify-between bg-gray-900 text-white">
                 <div>
-                  <h2 className="text-2xl font-black uppercase tracking-tight">Stock Indent Breakdown</h2>
-                  <p className="text-gray-400 text-xs font-bold mt-1 tracking-widest uppercase">Current Stock + Issued Values</p>
+                  <h2 className="text-3xl font-black uppercase tracking-tight leading-none">Stock Indent</h2>
+                  <p className="text-gray-400 text-[10px] font-black mt-2 tracking-widest uppercase">Inventory Valuation Breakdown</p>
                 </div>
                 <button 
                   onClick={() => setShowIndentModal(false)}
-                  className="p-2 hover:bg-white/10 rounded-full transition-colors"
+                  className="p-3 hover:bg-white/10 rounded-2xl transition-all"
                 >
                   <X className="w-6 h-6" />
                 </button>
               </div>
 
-              <div className="p-8 max-h-[60vh] overflow-y-auto">
-                <div className="space-y-4">
-                  {(Object.entries(categoryBreakdown) as [string, { stockValue: number; issuedValue: number }][])
-                    .sort((a, b) => (b[1].stockValue + b[1].issuedValue) - (a[1].stockValue + a[1].issuedValue))
-                    .map(([category, values]) => {
-                      const total = values.stockValue + values.issuedValue;
-                      return (
-                        <div key={category} className="p-4 bg-gray-50 rounded-2xl flex items-center justify-between group hover:bg-blue-50 transition-colors">
-                          <div>
-                            <h4 className="font-bold text-gray-900 tracking-tight">{category}</h4>
-                            <div className="flex gap-4 mt-1">
-                              <span className="text-[10px] font-bold text-gray-400 uppercase">Stock: ₹{values.stockValue.toLocaleString()}</span>
-                              <span className="text-[10px] font-bold text-gray-400 uppercase">Issued: ₹{values.issuedValue.toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-lg font-black text-gray-900">₹{total.toLocaleString()}</div>
-                            <div className="w-32 h-1.5 bg-gray-200 rounded-full mt-2 overflow-hidden">
-                              <div 
-                                className="h-full bg-blue-600 rounded-full transition-all duration-1000"
-                                style={{ width: `${(total / totalStockIndent) * 100}%` }}
-                              />
-                            </div>
+              <div className="p-10 max-h-[50vh] overflow-y-auto space-y-6">
+                {(Object.entries(categoryBreakdown) as [string, { stockValue: number; issuedValue: number }][])
+                  .sort((a, b) => (b[1].stockValue + b[1].issuedValue) - (a[1].stockValue + a[1].issuedValue))
+                  .map(([category, values]) => {
+                    const total = values.stockValue + values.issuedValue;
+                    return (
+                      <div key={category} className="group p-6 bg-gray-50 rounded-[2rem] flex items-center justify-between hover:bg-blue-50 transition-all duration-300">
+                        <div className="flex flex-col gap-2">
+                          <h4 className="text-lg font-black text-gray-900 tracking-tight">{category}</h4>
+                          <div className="flex gap-4">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Stock: ₹{values.stockValue.toLocaleString()}</span>
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Issued: ₹{values.issuedValue.toLocaleString()}</span>
                           </div>
                         </div>
-                      );
-                    })}
-                </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-black text-gray-900 tracking-tighter">₹{total.toLocaleString()}</div>
+                          <div className="w-32 h-2 bg-gray-200 rounded-full mt-3 overflow-hidden shadow-inner">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(total / totalStockIndent) * 100}%` }}
+                              transition={{ duration: 1.5, ease: "circOut" }}
+                              className="h-full bg-blue-600 rounded-full"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
 
-              <div className="p-8 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-sm font-black text-gray-500 uppercase tracking-widest">Total Valuation</span>
-                <span className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalStockIndent.toLocaleString()}</span>
+              <div className="p-10 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-xs font-black text-gray-500 uppercase tracking-[0.2em]">Total Valuation</span>
+                <span className="text-4xl font-black text-gray-900 tracking-tighter">₹{totalStockIndent.toLocaleString()}</span>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm"
+            className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5"
           >
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center justify-between mb-10">
               <div>
-                <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                  <TrendingUp className="w-6 h-6 text-blue-600" />
-                  CONSUMPTION TRENDS
-                </h3>
-                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Monthly Usage Value (Last 6 Months)</p>
+                <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Consumption Trends</h3>
+                <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">Daily item issuance volume</p>
+              </div>
+              <div className="p-4 bg-indigo-50 text-indigo-600 rounded-3xl shadow-inner">
+                <TrendingUp className="w-6 h-6" />
               </div>
             </div>
             
@@ -410,15 +421,12 @@ export default function Dashboard() {
             </div>
           </motion.div>
 
-          <div className="space-y-6">
+          <div className="space-y-8">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
-                <Building2 className="w-6 h-6 text-blue-600" />
-                BUILDING ANALYSIS
-              </h3>
+              <h3 className="text-2xl font-black text-gray-900 tracking-tight uppercase leading-none">Building Analysis</h3>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {buildings.map((building) => {
                 const buildingTransactions = dateFilteredTransactions.filter(t => t.building?.trim() === building.name.trim() && t.type === 'out');
                 
@@ -442,42 +450,46 @@ export default function Dashboard() {
                     key={building.id}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                    whileHover={{ y: -5 }}
+                    className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
                   >
-                    <div className="flex justify-between items-start mb-6">
+                    <div className="flex justify-between items-start mb-8">
                       <div>
-                        <h4 className="font-black text-gray-900 leading-tight uppercase">{building.name}</h4>
-                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Total Consumption</p>
+                        <h4 className="text-lg font-black text-gray-900 leading-tight uppercase tracking-tight">{building.name}</h4>
+                        <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-2">Total Consumption</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-black text-blue-600">₹{buildingTotalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                        <p className="text-2xl font-black text-blue-600 tracking-tighter">₹{buildingTotalValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                       </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-5">
                       {Object.entries(categoryConsumption)
                         .sort((a, b) => b[1] - a[1])
                         .map(([category, value]) => {
                           const percentage = buildingTotalValue > 0 ? (value / buildingTotalValue) * 100 : 0;
                           return (
-                            <div key={category} className="space-y-1">
+                            <div key={category} className="space-y-2">
                               <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                                <span className="text-gray-500">{category}</span>
+                                <span className="text-gray-400">{category}</span>
                                 <span className="text-gray-900">{percentage.toFixed(1)}%</span>
                               </div>
-                              <div className="w-full bg-gray-50 h-1.5 rounded-full overflow-hidden">
+                              <div className="w-full bg-gray-50 h-2 rounded-full overflow-hidden shadow-inner">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${percentage}%` }}
+                                  transition={{ duration: 1, ease: "circOut" }}
                                   className="bg-blue-600 h-full rounded-full"
                                 />
                               </div>
-                              <p className="text-[10px] text-right text-gray-400 font-bold">₹{value.toLocaleString()}</p>
+                              <p className="text-[10px] text-right text-gray-500 font-bold tracking-tight">₹{value.toLocaleString()}</p>
                             </div>
                           );
                         })}
                       {Object.keys(categoryConsumption).length === 0 && (
-                        <p className="text-xs text-gray-400 text-center py-4 italic">No consumption recorded</p>
+                        <div className="py-8 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                          <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">No Activity</p>
+                        </div>
                       )}
                     </div>
                   </motion.div>
@@ -489,26 +501,26 @@ export default function Dashboard() {
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                className="bg-white rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 overflow-hidden"
               >
-                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                  <h4 className="font-semibold text-gray-900 flex items-center gap-2">
+                <div className="p-6 border-b border-gray-100 bg-gray-50/50">
+                  <h4 className="font-black text-gray-900 uppercase tracking-tight flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-amber-500" />
                     Stock Alerts
                   </h4>
                 </div>
                 <div className="divide-y divide-gray-100">
                   {alerts.map((alert) => (
-                    <div key={alert.materialId} className="p-4 flex items-center justify-between">
+                    <div key={alert.materialId} className="p-6 flex items-center justify-between group hover:bg-amber-50 transition-colors">
                       <div>
-                        <p className="font-medium text-gray-900">{alert.name}</p>
-                        <p className="text-sm text-gray-500">
-                          Stock: <span className={alert.severity === 'critical' ? 'text-red-600 font-bold' : 'text-amber-600 font-medium'}>
+                        <p className="font-bold text-gray-900 tracking-tight">{alert.name}</p>
+                        <p className="text-xs text-gray-500 font-medium mt-1">
+                          Current Stock: <span className={alert.severity === 'critical' ? 'text-red-600 font-black' : 'text-amber-600 font-black'}>
                             {alert.currentStock}
                           </span> / Min: {alert.minStock}
                         </p>
                       </div>
-                      <div className={`px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                      <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                         alert.severity === 'critical' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                       }`}>
                         {alert.severity}
@@ -518,9 +530,11 @@ export default function Dashboard() {
                 </div>
               </motion.div>
             ) : (
-              <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
-                <Package className="w-12 h-12 mb-4 opacity-20" />
-                <p className="font-medium">All stock levels are healthy</p>
+              <div className="bg-white p-16 rounded-[2.5rem] border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-400">
+                <div className="p-5 bg-green-50 text-green-500 rounded-[2rem] mb-6 shadow-inner">
+                  <Package className="w-10 h-10" />
+                </div>
+                <p className="font-black uppercase tracking-widest text-xs">All stock levels are healthy</p>
               </div>
             )}
           </div>
@@ -529,33 +543,57 @@ export default function Dashboard() {
         <motion.div 
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
+          className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 h-fit sticky top-6"
         >
-          <h4 className="font-bold text-gray-900 mb-6 flex items-center gap-2">
-            <ClipboardList className="w-5 h-5 text-gray-400" />
-            Inventory Status
-          </h4>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-500 font-medium">Critical Items</span>
-              <span className={`font-bold ${criticalStockCount > 0 ? 'text-red-600' : 'text-gray-900'}`}>{criticalStockCount}</span>
+          <div className="flex items-center gap-3 mb-8">
+            <div className="p-3 bg-gray-100 text-gray-400 rounded-2xl">
+              <ClipboardList className="w-6 h-6" />
             </div>
-            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-              <div 
-                className="bg-red-500 h-full transition-all duration-500" 
-                style={{ width: `${totalItems ? (criticalStockCount / totalItems) * 100 : 0}%` }}
-              />
+            <h4 className="font-black text-gray-900 uppercase tracking-tight">Inventory Status</h4>
+          </div>
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                <span className="text-gray-400">Critical Items</span>
+                <span className={`px-2 py-0.5 rounded-lg ${criticalStockCount > 0 ? 'bg-red-100 text-red-600' : 'text-gray-900'}`}>{criticalStockCount}</span>
+              </div>
+              <div className="w-full bg-gray-50 h-3 rounded-full overflow-hidden shadow-inner">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${totalItems ? (criticalStockCount / totalItems) * 100 : 0}%` }}
+                  transition={{ duration: 1, ease: "circOut" }}
+                  className="bg-red-500 h-full rounded-full" 
+                />
+              </div>
             </div>
             
-            <div className="pt-4 border-t border-gray-50 flex justify-between items-center text-sm">
-              <span className="text-gray-500 font-medium">Low Stock Items</span>
-              <span className="font-bold text-amber-600">{lowStockCount}</span>
+            <div className="pt-6 border-t border-gray-100 space-y-3">
+              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                <span className="text-gray-400">Low Stock Items</span>
+                <span className="text-amber-600">{lowStockCount}</span>
+              </div>
+              <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden shadow-inner">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${totalItems ? (lowStockCount / totalItems) * 100 : 0}%` }}
+                  transition={{ duration: 1, ease: "circOut", delay: 0.2 }}
+                  className="bg-amber-500 h-full rounded-full" 
+                />
+              </div>
             </div>
-            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
-              <div 
-                className="bg-amber-500 h-full transition-all duration-500" 
-                style={{ width: `${totalItems ? (lowStockCount / totalItems) * 100 : 0}%` }}
-              />
+
+            <div className="pt-8 mt-4">
+              <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                    <TrendingUp className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Healthy</span>
+                </div>
+                <p className="text-xs text-blue-800 font-bold leading-relaxed">
+                  Your current inventory is well-balanced with {totalItems - lowStockCount} healthy stock levels.
+                </p>
+              </div>
             </div>
           </div>
         </motion.div>
