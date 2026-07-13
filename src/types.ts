@@ -8,6 +8,7 @@ export interface Material {
   currentStock: number;
   minStock: number;
   unitPrice: number;
+  vendorName?: string;
   lastRestocked?: string;
   createdAt: string;
 }

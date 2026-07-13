@@ -15,6 +15,7 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
   const { user: currentUser } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
+    vendorName: '',
     category: 'Cleaning Supplies' as MaterialCategory,
     unit: 'Pieces',
     currentStock: 0,
@@ -80,6 +81,17 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
               placeholder="e.g., Hand Soap"
               value={formData.name}
               onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Vendor Name</label>
+            <input
+              type="text"
+              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+              placeholder="Enter Vendor Name"
+              value={formData.vendorName}
+              onChange={(e) => setFormData(prev => ({ ...prev, vendorName: e.target.value }))}
             />
           </div>
 

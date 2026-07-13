@@ -33,7 +33,7 @@ export default function MaterialList() {
   const exportToCSV = () => {
     if (filteredMaterials.length === 0) return;
 
-    const headers = ['Item Name', 'Category', 'Unit', 'Current Stock', 'Min Stock', 'Unit Price (₹)', 'Total Value (₹)'];
+    const headers = ['Item Name', 'Category', 'Unit', 'Current Stock', 'Min Stock', 'Unit Price (₹)', 'Vendor Name', 'Total Value (₹)'];
     const rows = filteredMaterials.map(m => [
       m.name,
       m.category,
@@ -41,6 +41,7 @@ export default function MaterialList() {
       m.currentStock,
       m.minStock,
       m.unitPrice || 0,
+      m.vendorName || '',
       ((Number(m.currentStock) || 0) * (Number(m.unitPrice) || 0)).toFixed(2)
     ]);
 
@@ -190,6 +191,7 @@ export default function MaterialList() {
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Item Name</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Unit</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Unit Price</th>
+                <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Vendor</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Stock</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Actions</th>
@@ -217,6 +219,9 @@ export default function MaterialList() {
                         </td>
                         <td className="px-6 py-4">
                           <span className="text-sm text-gray-900 font-bold">₹{Number(item.unitPrice || 0).toLocaleString()}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="text-sm text-gray-900 font-semibold">{item.vendorName || '-'}</span>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <span className={`text-lg font-bold ${
@@ -394,6 +399,16 @@ export default function MaterialList() {
                     className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
                     value={editingMaterial.name}
                     onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, name: e.target.value }) : null)}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Vendor Name</label>
+                  <input
+                    type="text"
+                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                    value={editingMaterial.vendorName || ''}
+                    onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, vendorName: e.target.value }) : null)}
                   />
                 </div>
       
