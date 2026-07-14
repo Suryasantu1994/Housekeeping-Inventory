@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, deleteDoc, doc, addDoc, serverTimestamp, updateDoc, increment } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { Material, MaterialCategory } from '../types';
+import { Material, MaterialCategory, Vendor } from '../types';
 import { Edit2, Trash2, Plus, Minus, Search, Filter, MoreHorizontal, PackagePlus, AlertTriangle, ArrowDownRight, ArrowUpRight, FileDown, X, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -10,6 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function MaterialList() {
   const { user: currentUser } = useAuth();
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'All'>('All');
@@ -26,6 +27,18 @@ export default function MaterialList() {
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, path);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const q = query(collection(db, 'vendors'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const vendorData: Vendor[] = [];
+      snapshot.forEach((doc) => {
+        vendorData.push({ id: doc.id, ...doc.data() } as Vendor);
+      });
+      setVendors(vendorData.sort((a, b) => a.name.localeCompare(b.name)));
     });
     return () => unsubscribe();
   }, []);
@@ -403,13 +416,25 @@ export default function MaterialList() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Vendor Name</label>
-                  <input
-                    type="text"
-                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
-                    value={editingMaterial.vendorName || ''}
-                    onChange={(e) => setEditingMaterial(prev => prev ? ({ ...prev, vendorName: e.target.value }) : null)}
-                  />
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Vendor</label>
+                  <select
+                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer shadow-inner appearance-none"
+                    value={editingMaterial.vendorId || ''}
+                    onChange={(e) => {
+                      const vendorId = e.target.value;
+                      const vendor = vendors.find(v => v.id === vendorId);
+                      setEditingMaterial(prev => prev ? ({ 
+                        ...prev, 
+                        vendorId, 
+                        vendorName: vendor?.name || '' 
+                      }) : null);
+                    }}
+                  >
+                    <option value="">Select Vendor...</option>
+                    {vendors.map(vendor => (
+                      <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+                    ))}
+                  </select>
                 </div>
       
                 <div className="grid grid-cols-2 gap-4">

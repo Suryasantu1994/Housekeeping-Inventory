@@ -8,6 +8,7 @@ export interface Material {
   currentStock: number;
   minStock: number;
   unitPrice: number;
+  vendorId?: string;
   vendorName?: string;
   lastRestocked?: string;
   createdAt: string;
@@ -49,6 +50,35 @@ export interface Requisition {
 export interface Building {
   id: string;
   name: string;
+}
+
+export interface Vendor {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  createdAt: string;
+}
+
+export interface PurchaseItem {
+  materialId: string;
+  materialName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface Purchase {
+  id: string;
+  vendorId: string;
+  vendorName: string;
+  items: PurchaseItem[];
+  totalAmount: number;
+  status: 'pending' | 'received' | 'cancelled';
+  timestamp: string;
+  receivedAt?: string;
+  note?: string;
 }
 
 export interface StockAlert {

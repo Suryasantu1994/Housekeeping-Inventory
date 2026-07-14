@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, List, History, Settings, Plus, Bell, FileText, Menu, ChevronLeft, ChevronRight, LogIn, LogOut } from 'lucide-react';
+import { LayoutDashboard, List, History, Settings, Plus, Bell, FileText, Menu, ChevronLeft, ChevronRight, LogIn, LogOut, Truck, ShoppingCart, BookOpen } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import logo from '../assets/images/hk_logo_1782666998761.jpg';
 import Dashboard from './Dashboard';
@@ -8,10 +8,13 @@ import TransactionHistory from './TransactionHistory';
 import IssuanceCalendar from './IssuanceCalendar';
 import AddMaterialForm from './AddMaterialForm';
 import Requisitions from './Requisitions';
+import Vendors from './Vendors';
+import Purchases from './Purchases';
+import StockLedger from './StockLedger';
 import SettingsView from './Settings';
 import { useAuth } from '../contexts/AuthContext';
 
-type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'settings';
+type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'vendors' | 'purchases' | 'ledger' | 'settings';
 
 export default function Layout() {
   const { user, loading, signInWithGoogle, logout } = useAuth();
@@ -83,6 +86,9 @@ export default function Layout() {
   const navigation = [
     { name: 'Dashboard', icon: LayoutDashboard, view: 'dashboard' as View },
     { name: 'Inventory', icon: List, view: 'inventory' as View },
+    { name: 'Vendors', icon: Truck, view: 'vendors' as View },
+    { name: 'Purchases', icon: ShoppingCart, view: 'purchases' as View },
+    { name: 'Stock Ledger', icon: BookOpen, view: 'ledger' as View },
     { name: 'History', icon: History, view: 'history' as View },
     { name: 'Issuance Calendar', icon: Bell, view: 'calendar' as View },
     { name: 'Requisitions', icon: FileText, view: 'requisitions' as View },
@@ -196,6 +202,9 @@ export default function Layout() {
           {currentView === 'history' && <TransactionHistory />}
           {currentView === 'calendar' && <IssuanceCalendar />}
           {currentView === 'requisitions' && <Requisitions />}
+          {currentView === 'vendors' && <Vendors />}
+          {currentView === 'purchases' && <Purchases />}
+          {currentView === 'ledger' && <StockLedger />}
           {currentView === 'settings' && <SettingsView />}
         </div>
       </main>

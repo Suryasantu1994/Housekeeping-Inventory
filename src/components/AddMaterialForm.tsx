@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { collection, addDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, addDoc, query, onSnapshot } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { MaterialCategory } from '../types';
+import { MaterialCategory, Vendor } from '../types';
 import { X, Save } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -13,8 +13,10 @@ interface AddMaterialFormProps {
 
 export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
   const { user: currentUser } = useAuth();
+  const [vendors, setVendors] = useState<Vendor[]>([]);
   const [formData, setFormData] = useState({
     name: '',
+    vendorId: '',
     vendorName: '',
     category: 'Cleaning Supplies' as MaterialCategory,
     unit: 'Pieces',
@@ -23,6 +25,18 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
     unitPrice: 0
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const q = query(collection(db, 'vendors'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const vendorData: Vendor[] = [];
+      snapshot.forEach((doc) => {
+        vendorData.push({ id: doc.id, ...doc.data() } as Vendor);
+      });
+      setVendors(vendorData.sort((a, b) => a.name.localeCompare(b.name)));
+    });
+    return () => unsubscribe();
+  }, []);
 
   const totalValue = formData.currentStock * formData.unitPrice;
 
@@ -85,14 +99,25 @@ export default function AddMaterialForm({ onClose }: AddMaterialFormProps) {
           </div>
 
           <div className="space-y-2">
-            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Vendor Name</label>
-            <input
-              type="text"
-              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
-              placeholder="Enter Vendor Name"
-              value={formData.vendorName}
-              onChange={(e) => setFormData(prev => ({ ...prev, vendorName: e.target.value }))}
-            />
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Vendor</label>
+            <select
+              className="w-full px-6 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none cursor-pointer shadow-inner appearance-none"
+              value={formData.vendorId}
+              onChange={(e) => {
+                const vendorId = e.target.value;
+                const vendor = vendors.find(v => v.id === vendorId);
+                setFormData(prev => ({ 
+                  ...prev, 
+                  vendorId, 
+                  vendorName: vendor?.name || '' 
+                }));
+              }}
+            >
+              <option value="">Select Vendor...</option>
+              {vendors.map(vendor => (
+                <option key={vendor.id} value={vendor.id}>{vendor.name}</option>
+              ))}
+            </select>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
