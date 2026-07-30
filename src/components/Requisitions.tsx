@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, increment, writeBatch } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Requisition, RequisitionStatus, Material, RequisitionItem, Building } from '../types';
 import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus, X, Pencil, Save } from 'lucide-react';
@@ -144,7 +144,6 @@ export default function Requisitions() {
           for (const item of req.items) {
             const material = materials.find(m => m.id === item.materialId);
             const materialRef = doc(db, 'materials', item.materialId);
-            const { increment } = await import('firebase/firestore');
             
             // Deduct stock
             await updateDoc(materialRef, {
@@ -187,14 +186,42 @@ export default function Requisitions() {
     if (!editingRequisition) return;
 
     try {
+      const original = requisitions.find(r => r.id === editingRequisition.id);
       const docRef = doc(db, 'requisitions', editingRequisition.id);
-      await updateDoc(docRef, {
+      
+      // Use a batch for atomic updates
+      const batch = writeBatch(db);
+
+      // If the requisition was already completed, we need to adjust the inventory
+      if (original && original.status === 'completed') {
+        // 1. Revert old items (add back to stock)
+        for (const item of original.items) {
+          const materialRef = doc(db, 'materials', item.materialId);
+          batch.update(materialRef, {
+            currentStock: increment(item.quantity)
+          });
+        }
+        
+        // 2. Apply new items (deduct from stock)
+        for (const item of editingRequisition.items) {
+          if (!item.materialId) continue;
+          const materialRef = doc(db, 'materials', item.materialId);
+          batch.update(materialRef, {
+            currentStock: increment(-item.quantity)
+          });
+        }
+      }
+
+      // Update the requisition document
+      batch.update(docRef, {
         building: editingRequisition.building,
         items: editingRequisition.items,
         requesterName: editingRequisition.requesterName,
         date: editingRequisition.date,
         note: editingRequisition.note,
       });
+
+      await batch.commit();
       setEditingRequisition(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `requisitions/${editingRequisition.id}`);
