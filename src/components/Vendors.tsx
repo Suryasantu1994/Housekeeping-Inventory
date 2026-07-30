@@ -10,6 +10,7 @@ export default function Vendors() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingVendor, setEditingVendor] = useState<Vendor | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -69,12 +70,11 @@ export default function Vendors() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this vendor?')) {
-      try {
-        await deleteDoc(doc(db, 'vendors', id));
-      } catch (error) {
-        console.error("Error deleting vendor:", error);
-      }
+    try {
+      await deleteDoc(doc(db, 'vendors', id));
+      setDeleteConfirm(null);
+    } catch (error) {
+      console.error("Error deleting vendor:", error);
     }
   };
 
@@ -120,19 +120,39 @@ export default function Vendors() {
               exit={{ opacity: 0, scale: 0.9 }}
               className="bg-white p-8 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 relative group"
             >
-              <div className="absolute top-6 right-6 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="absolute top-6 right-6 flex gap-2">
                 <button
                   onClick={() => handleEdit(vendor)}
-                  className="p-2 hover:bg-blue-50 text-blue-600 rounded-xl transition-colors"
+                  className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+                  title="Edit Vendor"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
-                <button
-                  onClick={() => handleDelete(vendor.id)}
-                  className="p-2 hover:bg-red-50 text-red-600 rounded-xl transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                
+                {deleteConfirm === vendor.id ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(vendor.id)}
+                      className="px-3 py-2 bg-red-600 text-white text-[10px] font-black rounded-xl uppercase hover:bg-red-700 shadow-lg shadow-red-200 transition-all active:scale-95"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(null)}
+                      className="p-2 bg-gray-100 text-gray-500 rounded-xl hover:bg-gray-200 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeleteConfirm(vendor.id)}
+                    className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors"
+                    title="Delete Vendor"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-4 mb-6">

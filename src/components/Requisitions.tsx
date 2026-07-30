@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Requisition, RequisitionStatus, Material, RequisitionItem, Building } from '../types';
-import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus, X } from 'lucide-react';
+import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus, X, Pencil, Save } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -14,6 +14,7 @@ export default function Requisitions() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingRequisition, setEditingRequisition] = useState<Requisition | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterDate, setFilterDate] = useState<string>('');
 
@@ -155,7 +156,7 @@ export default function Requisitions() {
               materialId: item.materialId,
               materialName: item.materialName,
               quantity: item.quantity,
-              unitPrice: material?.unitPrice || 0, // Include unit price for value tracking
+              unitPrice: material?.unitPrice || 0,
               type: 'out',
               timestamp: new Date().toISOString(),
               building: req.building,
@@ -179,6 +180,59 @@ export default function Requisitions() {
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `requisitions/${id}`);
     }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRequisition) return;
+
+    try {
+      const docRef = doc(db, 'requisitions', editingRequisition.id);
+      await updateDoc(docRef, {
+        building: editingRequisition.building,
+        items: editingRequisition.items,
+        requesterName: editingRequisition.requesterName,
+        date: editingRequisition.date,
+        note: editingRequisition.note,
+      });
+      setEditingRequisition(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `requisitions/${editingRequisition.id}`);
+    }
+  };
+
+  const updateEditItem = (index: number, field: keyof RequisitionItem, value: any) => {
+    if (!editingRequisition) return;
+    const newItems = [...editingRequisition.items];
+    if (field === 'materialId') {
+      const material = materials.find(m => m.id === value);
+      if (material) {
+        newItems[index] = {
+          ...newItems[index],
+          materialId: value,
+          materialName: material.name
+        };
+      }
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value };
+    }
+    setEditingRequisition({ ...editingRequisition, items: newItems });
+  };
+
+  const addEditItem = () => {
+    if (!editingRequisition) return;
+    setEditingRequisition({
+      ...editingRequisition,
+      items: [...editingRequisition.items, { materialId: '', materialName: '', quantity: 1 }]
+    });
+  };
+
+  const removeEditItem = (index: number) => {
+    if (!editingRequisition || editingRequisition.items.length <= 1) return;
+    setEditingRequisition({
+      ...editingRequisition,
+      items: editingRequisition.items.filter((_, i) => i !== index)
+    });
   };
 
   const getStatusColor = (status: RequisitionStatus) => {
@@ -252,7 +306,6 @@ export default function Requisitions() {
               exit={{ opacity: 0, scale: 0.9, y: 40 }}
               className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[90vh]"
             >
-              {/* Header */}
               <div className="p-10 border-b border-gray-100 flex items-center justify-between bg-gray-900 text-white">
                 <div>
                   <h2 className="text-3xl font-black uppercase tracking-tight leading-none">New Requisition</h2>
@@ -266,10 +319,8 @@ export default function Requisitions() {
                 </button>
               </div>
 
-              {/* Form Content */}
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-10 space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Building Selection */}
                   <div className="space-y-3">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Target Building</label>
                     <div className="relative group">
@@ -288,7 +339,6 @@ export default function Requisitions() {
                     </div>
                   </div>
 
-                  {/* Requisition Date */}
                   <div className="space-y-3">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Request Date</label>
                     <div className="relative group">
@@ -305,7 +355,6 @@ export default function Requisitions() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Requester Name */}
                   <div className="space-y-3">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Requester Name</label>
                     <div className="relative group">
@@ -321,7 +370,6 @@ export default function Requisitions() {
                     </div>
                   </div>
 
-                  {/* Internal Note */}
                   <div className="space-y-3">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Internal Note</label>
                     <div className="relative group">
@@ -337,7 +385,6 @@ export default function Requisitions() {
                   </div>
                 </div>
 
-                {/* Items List */}
                 <div className="space-y-4">
                   <div className="flex items-center justify-between px-1">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Requested Materials</label>
@@ -398,7 +445,6 @@ export default function Requisitions() {
                   </div>
                 </div>
 
-                {/* Footer Actions */}
                 <div className="pt-6 mt-6 border-t border-gray-100 space-y-6">
                   <div className="flex items-center justify-between px-2">
                     <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Estimated Total Value</span>
@@ -420,6 +466,147 @@ export default function Requisitions() {
                     className="w-full mt-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors"
                   >
                     Cancel and Close
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {editingRequisition && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingRequisition(null)}
+              className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 40 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 40 }}
+              className="relative bg-white w-full max-w-2xl rounded-[2.5rem] shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="p-10 border-b border-gray-100 flex items-center justify-between bg-blue-600 text-white">
+                <div>
+                  <h2 className="text-3xl font-black uppercase tracking-tight leading-none">Edit Requisition</h2>
+                  <p className="text-blue-100 text-[10px] font-black mt-2 tracking-widest uppercase">Adjust items or building</p>
+                </div>
+                <button 
+                  onClick={() => setEditingRequisition(null)}
+                  className="p-3 hover:bg-white/10 rounded-2xl transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="flex-1 overflow-y-auto p-10 space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Building</label>
+                    <select
+                      required
+                      className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner appearance-none cursor-pointer"
+                      value={editingRequisition.building}
+                      onChange={(e) => setEditingRequisition({ ...editingRequisition, building: e.target.value })}
+                    >
+                      {buildings.map(b => (
+                        <option key={b.id} value={b.name}>{b.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-3">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Request Date</label>
+                    <input
+                      required
+                      type="date"
+                      className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner cursor-pointer"
+                      value={editingRequisition.date}
+                      onChange={(e) => setEditingRequisition({ ...editingRequisition, date: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Requester Name</label>
+                  <input
+                    required
+                    type="text"
+                    className="w-full px-5 py-4 bg-gray-50 border-none rounded-2xl font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-inner"
+                    value={editingRequisition.requesterName}
+                    onChange={(e) => setEditingRequisition({ ...editingRequisition, requesterName: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Requested Materials</label>
+                    <button
+                      type="button"
+                      onClick={addEditItem}
+                      className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-2 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition-all"
+                    >
+                      <Plus className="w-3 h-3" /> Add Item
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    {editingRequisition.items.map((item, index) => (
+                      <div key={index} className="flex gap-4 items-center bg-gray-50 p-4 rounded-[1.5rem] border border-transparent hover:border-gray-100 transition-all">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
+                          <div className="md:col-span-3">
+                            <select
+                              required
+                              className="w-full px-5 py-3 bg-white border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all cursor-pointer shadow-sm"
+                              value={item.materialId}
+                              onChange={(e) => updateEditItem(index, 'materialId', e.target.value)}
+                            >
+                              <option value="">Select Material...</option>
+                              {materials.map(m => (
+                                <option key={m.id} value={m.id}>{m.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <input
+                              required
+                              type="number"
+                              min="1"
+                              className="w-full px-5 py-3 bg-white border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm text-center"
+                              value={item.quantity}
+                              onChange={(e) => updateEditItem(index, 'quantity', parseInt(e.target.value) || 0)}
+                            />
+                          </div>
+                        </div>
+                        {editingRequisition.items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeEditItem(index)}
+                            className="p-3 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                          >
+                            <Minus className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-6 mt-6 border-t border-gray-100 space-y-4">
+                  <button
+                    type="submit"
+                    className="w-full py-6 bg-blue-600 text-white rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-2xl shadow-blue-600/20 flex items-center justify-center gap-3 active:scale-95"
+                  >
+                    <Save className="w-6 h-6" />
+                    Save Changes
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingRequisition(null)}
+                    className="w-full py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors"
+                  >
+                    Cancel
                   </button>
                 </div>
               </form>
@@ -519,6 +706,13 @@ export default function Requisitions() {
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
                 )}
+                <button
+                  onClick={() => setEditingRequisition(req)}
+                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                  title="Edit Requisition"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
               </div>
 
               {deleteConfirm === req.id ? (
