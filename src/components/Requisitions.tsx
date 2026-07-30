@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, increment, writeBatch } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, increment, writeBatch, getDocs, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Requisition, RequisitionStatus, Material, RequisitionItem, Building } from '../types';
 import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus, X, Pencil, Save } from 'lucide-react';
@@ -174,7 +174,33 @@ export default function Requisitions() {
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'requisitions', id));
+      const req = requisitions.find(r => r.id === id);
+      const batch = writeBatch(db);
+
+      if (req && req.status === 'completed') {
+        // 1. Revert stock
+        for (const item of req.items) {
+          const materialRef = doc(db, 'materials', item.materialId);
+          batch.update(materialRef, {
+            currentStock: increment(item.quantity)
+          });
+        }
+
+        // 2. Delete transactions
+        const transactionsRef = collection(db, 'transactions');
+        const q = query(
+          transactionsRef, 
+          where('note', '>=', `Requisition ${id}`), 
+          where('note', '<=', `Requisition ${id}\uf8ff`)
+        );
+        const transactionSnap = await getDocs(q);
+        transactionSnap.docs.forEach(tDoc => batch.delete(tDoc.ref));
+      }
+
+      // Delete the requisition
+      batch.delete(doc(db, 'requisitions', id));
+      await batch.commit();
+      
       setDeleteConfirm(null);
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, `requisitions/${id}`);
@@ -192,8 +218,18 @@ export default function Requisitions() {
       // Use a batch for atomic updates
       const batch = writeBatch(db);
 
-      // If the requisition was already completed, we need to adjust the inventory
+      // If the requisition was already completed, we need to adjust the inventory and transactions
       if (original && original.status === 'completed') {
+        // 0. Find and delete old transactions for this requisition
+        const transactionsRef = collection(db, 'transactions');
+        const q = query(
+          transactionsRef, 
+          where('note', '>=', `Requisition ${editingRequisition.id}`), 
+          where('note', '<=', `Requisition ${editingRequisition.id}\uf8ff`)
+        );
+        const transactionSnap = await getDocs(q);
+        transactionSnap.docs.forEach(tDoc => batch.delete(tDoc.ref));
+
         // 1. Revert old items (add back to stock)
         for (const item of original.items) {
           const materialRef = doc(db, 'materials', item.materialId);
@@ -202,12 +238,28 @@ export default function Requisitions() {
           });
         }
         
-        // 2. Apply new items (deduct from stock)
+        // 2. Apply new items (deduct from stock) and create new transactions
         for (const item of editingRequisition.items) {
           if (!item.materialId) continue;
           const materialRef = doc(db, 'materials', item.materialId);
           batch.update(materialRef, {
             currentStock: increment(-item.quantity)
+          });
+
+          // Create new transaction
+          const material = materials.find(m => m.id === item.materialId);
+          const newTransactionRef = doc(collection(db, 'transactions'));
+          batch.set(newTransactionRef, {
+            materialId: item.materialId,
+            materialName: item.materialName,
+            quantity: item.quantity,
+            unitPrice: material?.unitPrice || 0,
+            type: 'out',
+            timestamp: new Date().toISOString(),
+            building: editingRequisition.building,
+            userId: currentUser?.uid,
+            userName: currentUser?.displayName || 'System',
+            note: `Requisition ${editingRequisition.id} - ${editingRequisition.building} (${editingRequisition.requesterName})`
           });
         }
       }
