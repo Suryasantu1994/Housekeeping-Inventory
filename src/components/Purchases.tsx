@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, runTransaction } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, runTransaction, deleteDoc } from 'firebase/firestore';
 import { Purchase, PurchaseItem, Vendor, Material } from '../types';
 import { Plus, Search, X, ShoppingCart, Truck, Calendar, Save, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -11,6 +11,7 @@ export default function Purchases() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     vendorId: '',
@@ -156,6 +157,15 @@ export default function Purchases() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'purchases', id));
+      setDeletingId(null);
+    } catch (error) {
+      console.error("Error deleting purchase:", error);
+    }
+  };
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -182,16 +192,46 @@ export default function Purchases() {
           >
             <div className="flex flex-col lg:flex-row justify-between gap-6">
               <div className="flex-1">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
-                    purchase.status === 'received' ? 'bg-green-100 text-green-700' : 
-                    purchase.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
-                  }`}>
-                    {purchase.status}
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
+                      purchase.status === 'received' ? 'bg-green-100 text-green-700' : 
+                      purchase.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {purchase.status}
+                    </div>
+                    <span className="text-xs font-bold text-gray-400">
+                      {new Date(purchase.timestamp).toLocaleDateString()}
+                    </span>
                   </div>
-                  <span className="text-xs font-bold text-gray-400">
-                    {new Date(purchase.timestamp).toLocaleDateString()}
-                  </span>
+                  
+                  <div className="flex items-center gap-2">
+                    {deletingId === purchase.id ? (
+                      <div className="flex items-center gap-2 bg-red-50 p-1 rounded-xl border border-red-100">
+                        <span className="text-[10px] font-black text-red-600 uppercase tracking-widest px-2">Confirm?</span>
+                        <button
+                          onClick={() => handleDelete(purchase.id)}
+                          className="px-3 py-1 bg-red-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-red-700 transition-all"
+                        >
+                          Delete
+                        </button>
+                        <button
+                          onClick={() => setDeletingId(null)}
+                          className="px-3 py-1 bg-gray-200 text-gray-600 text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-gray-300 transition-all"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingId(purchase.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                        title="Delete Purchase Order"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <h3 className="text-xl font-black text-gray-900 uppercase tracking-tight mb-2">{purchase.vendorName}</h3>
                 <p className="text-sm font-medium text-gray-500 mb-6">{purchase.note || 'No notes added'}</p>
