@@ -12,10 +12,11 @@ import Vendors from './Vendors';
 import Purchases from './Purchases';
 import StockLedger from './StockLedger';
 import StockIndent from './StockIndent';
+import MonthlyReport from './MonthlyReport';
 import SettingsView from './Settings';
 import { useAuth } from '../contexts/AuthContext';
 
-type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'vendors' | 'purchases' | 'ledger' | 'indent' | 'settings';
+type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'vendors' | 'purchases' | 'ledger' | 'indent' | 'report' | 'settings';
 
 export default function Layout() {
   const { user, loading, signInWithGoogle, logout } = useAuth();
@@ -92,6 +93,7 @@ export default function Layout() {
     { name: 'Purchases', icon: ShoppingCart, view: 'purchases' as View },
     { name: 'Stock Ledger', icon: BookOpen, view: 'ledger' as View },
     { name: 'History', icon: History, view: 'history' as View },
+    { name: 'Monthly Report', icon: FileSpreadsheet, view: 'report' as View },
     { name: 'Issuance Calendar', icon: Bell, view: 'calendar' as View },
     { name: 'Requisitions', icon: FileText, view: 'requisitions' as View },
     { name: 'Settings', icon: Settings, view: 'settings' as View },
@@ -208,6 +210,7 @@ export default function Layout() {
           {currentView === 'indent' && <StockIndent />}
           {currentView === 'purchases' && <Purchases />}
           {currentView === 'ledger' && <StockLedger />}
+          {currentView === 'report' && <MonthlyReport />}
           {currentView === 'settings' && <SettingsView />}
         </div>
       </main>
