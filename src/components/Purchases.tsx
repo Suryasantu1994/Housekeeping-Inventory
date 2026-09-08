@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, runTransaction, deleteDoc } from 'firebase/firestore';
 import { Purchase, PurchaseItem, Vendor, Material } from '../types';
 import { Plus, Search, X, ShoppingCart, Truck, Calendar, Save, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Purchases() {
+  const { user: currentUser } = useAuth();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [receivingId, setReceivingId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     vendorId: '',
@@ -115,8 +118,7 @@ export default function Purchases() {
   };
 
   const handleReceive = async (purchase: Purchase) => {
-    if (!window.confirm('Mark this purchase as received and update stock?')) return;
-
+    setIsSubmitting(true);
     try {
       await runTransaction(db, async (transaction) => {
         // 1. Update purchase status
@@ -128,6 +130,8 @@ export default function Purchases() {
 
         // 2. Update material stock and create transactions
         for (const item of purchase.items) {
+          if (!item.materialId) continue;
+          
           const materialRef = doc(db, 'materials', item.materialId);
           const materialDoc = await transaction.get(materialRef);
           
@@ -147,13 +151,18 @@ export default function Purchases() {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               timestamp: new Date().toISOString(),
+              userId: currentUser?.uid,
+              userName: currentUser?.displayName || 'System',
               note: `Purchase Order Received (${purchase.vendorName})`
             });
           }
         }
       });
+      setReceivingId(null);
     } catch (error) {
-      console.error("Error receiving purchase:", error);
+      handleFirestoreError(error, OperationType.WRITE, `purchases/${purchase.id}/receive`);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -256,13 +265,37 @@ export default function Purchases() {
                 </div>
                 
                 {purchase.status === 'pending' && (
-                  <button
-                    onClick={() => handleReceive(purchase)}
-                    className="mt-8 flex items-center justify-center gap-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
-                  >
-                    <CheckCircle className="w-5 h-5" />
-                    Mark Received
-                  </button>
+                  <div className="mt-8 space-y-3">
+                    {receivingId === purchase.id ? (
+                      <div className="p-5 bg-blue-50 rounded-[1.5rem] border border-blue-100 shadow-inner">
+                        <p className="text-[10px] font-black text-blue-700 uppercase tracking-widest text-center mb-4">Confirm receiving inventory?</p>
+                        <div className="flex gap-2">
+                          <button
+                            disabled={isSubmitting}
+                            onClick={() => handleReceive(purchase)}
+                            className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                          >
+                            {isSubmitting ? 'Processing...' : 'Yes, Confirm'}
+                          </button>
+                          <button
+                            disabled={isSubmitting}
+                            onClick={() => setReceivingId(null)}
+                            className="flex-1 py-3 bg-white text-gray-500 border border-gray-200 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-50 transition-all active:scale-95"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setReceivingId(purchase.id)}
+                        className="flex items-center justify-center gap-3 w-full py-4 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                        Mark Received
+                      </button>
+                    )}
+                  </div>
                 )}
                 {purchase.status === 'received' && (
                   <div className="mt-8 flex items-center gap-3 text-green-600 font-bold text-sm bg-green-50 p-4 rounded-2xl border border-green-100">
