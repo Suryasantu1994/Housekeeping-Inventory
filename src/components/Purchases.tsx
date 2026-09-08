@@ -121,22 +121,26 @@ export default function Purchases() {
     setIsSubmitting(true);
     try {
       await runTransaction(db, async (transaction) => {
-        // 1. Update purchase status
+        // 1. Gather all material refs for items
+        const itemsToProcess = purchase.items.filter(item => !!item.materialId);
+        const materialRefs = itemsToProcess.map(item => doc(db, 'materials', item.materialId));
+
+        // 2. DO ALL READS FIRST
+        const materialSnaps = await Promise.all(materialRefs.map(ref => transaction.get(ref)));
+
+        // 3. NOW DO ALL WRITES
         const purchaseRef = doc(db, 'purchases', purchase.id);
         transaction.update(purchaseRef, { 
           status: 'received', 
           receivedAt: new Date().toISOString() 
         });
 
-        // 2. Update material stock and create transactions
-        for (const item of purchase.items) {
-          if (!item.materialId) continue;
+        itemsToProcess.forEach((item, index) => {
+          const materialSnap = materialSnaps[index];
+          const materialRef = materialRefs[index];
           
-          const materialRef = doc(db, 'materials', item.materialId);
-          const materialDoc = await transaction.get(materialRef);
-          
-          if (materialDoc.exists()) {
-            const currentStock = materialDoc.data().currentStock || 0;
+          if (materialSnap.exists()) {
+            const currentStock = materialSnap.data().currentStock || 0;
             transaction.update(materialRef, {
               currentStock: currentStock + item.quantity,
               lastRestocked: new Date().toISOString()
@@ -156,7 +160,7 @@ export default function Purchases() {
               note: `Purchase Order Received (${purchase.vendorName})`
             });
           }
-        }
+        });
       });
       setReceivingId(null);
     } catch (error) {
