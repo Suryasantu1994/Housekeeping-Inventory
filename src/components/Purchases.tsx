@@ -377,9 +377,16 @@ export default function Purchases() {
                   </div>
                   
                   <div className="space-y-4">
+                    <div className="grid grid-cols-12 gap-4 px-4 text-[10px] font-black text-gray-400 uppercase tracking-widest hidden md:grid">
+                      <div className="col-span-4">Material</div>
+                      <div className="col-span-2">Quantity</div>
+                      <div className="col-span-2">Price</div>
+                      <div className="col-span-3">Subtotal</div>
+                      <div className="col-span-1"></div>
+                    </div>
                     {formData.items.map((item, idx) => (
-                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 relative">
-                        <div className="md:col-span-5">
+                      <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100 relative group">
+                        <div className="md:col-span-4">
                           <select
                             required
                             className="w-full bg-white border-none rounded-xl px-4 py-3 text-sm font-bold text-gray-900 shadow-sm"
@@ -392,7 +399,7 @@ export default function Purchases() {
                             ))}
                           </select>
                         </div>
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-2">
                           <input
                             type="number"
                             required
@@ -403,7 +410,7 @@ export default function Purchases() {
                             onChange={(e) => updateItem(idx, 'quantity', Number(e.target.value))}
                           />
                         </div>
-                        <div className="md:col-span-3">
+                        <div className="md:col-span-2">
                           <input
                             type="number"
                             required
@@ -414,6 +421,12 @@ export default function Purchases() {
                             value={item.unitPrice}
                             onChange={(e) => updateItem(idx, 'unitPrice', Number(e.target.value))}
                           />
+                        </div>
+                        <div className="md:col-span-3 flex items-center px-2">
+                          <div className="w-full text-right">
+                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2 md:hidden">Subtotal:</span>
+                            <span className="text-sm font-black text-gray-900">₹{(item.quantity * item.unitPrice).toLocaleString()}</span>
+                          </div>
                         </div>
                         <div className="md:col-span-1 flex items-center justify-center">
                           <button
@@ -433,6 +446,15 @@ export default function Purchases() {
                     )}
                   </div>
                 </div>
+
+                {formData.items.length > 0 && (
+                  <div className="flex justify-end items-center gap-4 px-8 py-6 bg-gray-900 rounded-[2rem] text-white">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Total Order Value</p>
+                    <p className="text-3xl font-black tracking-tighter">
+                      ₹{formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0).toLocaleString()}
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest px-1">Notes</label>
