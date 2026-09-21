@@ -494,9 +494,19 @@ export default function Requisitions() {
                             >
                               <option value="">Select Material...</option>
                               {materials.map(m => (
-                                <option key={m.id} value={m.id}>{m.name} ({m.currentStock} {m.unit})</option>
+                                <option key={m.id} value={m.id}>
+                                  {m.name} ({m.currentStock} {m.unit}) {m.vendorName ? `— ${m.vendorName}` : ''}
+                                </option>
                               ))}
                             </select>
+                            {item.materialId && (
+                              <div className="mt-1.5 px-3 py-1 bg-gray-100/50 rounded-lg flex items-center gap-2 w-fit">
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor:</span>
+                                <span className="text-[10px] font-bold text-gray-600">
+                                  {materials.find(m => m.id === item.materialId)?.vendorName || 'Not Assigned'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <div>
                             <input
@@ -643,9 +653,19 @@ export default function Requisitions() {
                             >
                               <option value="">Select Material...</option>
                               {materials.map(m => (
-                                <option key={m.id} value={m.id}>{m.name}</option>
+                                <option key={m.id} value={m.id}>
+                                  {m.name} {m.vendorName ? `— ${m.vendorName}` : ''}
+                                </option>
                               ))}
                             </select>
+                            {item.materialId && (
+                              <div className="mt-1.5 px-3 py-1 bg-gray-100/50 rounded-lg flex items-center gap-2 w-fit">
+                                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Vendor:</span>
+                                <span className="text-[10px] font-bold text-gray-600">
+                                  {materials.find(m => m.id === item.materialId)?.vendorName || 'Not Assigned'}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <div>
                             <input
