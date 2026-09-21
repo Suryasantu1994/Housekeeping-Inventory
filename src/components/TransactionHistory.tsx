@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, limit, deleteDoc, doc, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Transaction, Building } from '../types';
 import { Clock, ArrowUpRight, ArrowDownRight, Trash2, Building2, ChevronRight, ArrowLeft, User as UserIcon, X } from 'lucide-react';
@@ -7,18 +7,72 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export default function TransactionHistory() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [buildingTransactions, setBuildingTransactions] = useState<Transaction[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detailLoading, setDetailLoading] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [filterDate, setFilterDate] = useState<string>('');
 
   useEffect(() => {
+    if (!selectedBuilding) {
+      setBuildingTransactions([]);
+      return;
+    }
+
+    setDetailLoading(true);
+    const tPath = 'transactions';
+    let q;
+    
+    if (selectedBuilding === 'General Inventory') {
+      // General inventory includes transactions with no building or 'General Inventory'
+      q = query(
+        collection(db, tPath),
+        orderBy('timestamp', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, tPath),
+        where('building', '==', selectedBuilding),
+        orderBy('timestamp', 'desc')
+      );
+    }
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+          id: doc.id, 
+          ...data,
+          timestamp: data.timestamp && typeof data.timestamp.toDate === 'function' 
+            ? data.timestamp.toDate().toISOString() 
+            : (data.timestamp || new Date().toISOString())
+        } as Transaction;
+      });
+
+      // Secondary filter for General Inventory if needed (Firebase doesn't support where field == null or field == 'value' in one query easily without OR)
+      if (selectedBuilding === 'General Inventory') {
+        setBuildingTransactions(docs.filter(t => !t.building || t.building === 'General Inventory'));
+      } else {
+        setBuildingTransactions(docs);
+      }
+      setDetailLoading(false);
+    }, (error) => {
+      console.error("Error fetching detailed transactions:", error);
+      setDetailLoading(false);
+    });
+
+    return () => unsub();
+  }, [selectedBuilding]);
+
+  useEffect(() => {
     const tPath = 'transactions';
     const bPath = 'buildings';
     
-    const qT = query(collection(db, tPath), orderBy('timestamp', 'desc'), limit(200));
-    const unsubT = onSnapshot(qT, (snapshot) => {
+    // Base query for building summary counts (limit 1000 for counts)
+    const qSummary = query(collection(db, tPath), orderBy('timestamp', 'desc'), limit(1000));
+    const unsubSummary = onSnapshot(qSummary, (snapshot) => {
       const docs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
@@ -41,7 +95,7 @@ export default function TransactionHistory() {
     });
 
     return () => {
-      unsubT();
+      unsubSummary();
       unsubB();
     };
   }, []);
@@ -63,11 +117,7 @@ export default function TransactionHistory() {
 
   const globalTransactionsCount = transactions.filter(t => !t.building || t.building === 'General Inventory').length;
 
-  const filteredTransactions = (selectedBuilding === 'General Inventory' 
-    ? transactions.filter(t => !t.building || t.building === 'General Inventory')
-    : selectedBuilding 
-      ? transactions.filter(t => t.building?.trim() === selectedBuilding.trim())
-      : [])
+  const filteredTransactions = buildingTransactions
     .filter(t => {
       if (!filterDate) return true;
       const tDate = new Date(t.timestamp).toISOString().split('T')[0];
@@ -169,7 +219,12 @@ export default function TransactionHistory() {
 
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
               <div className="divide-y divide-gray-50">
-                {filteredTransactions.length === 0 ? (
+                {detailLoading ? (
+                  <div className="p-20 text-center text-gray-400">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    Loading transactions...
+                  </div>
+                ) : filteredTransactions.length === 0 ? (
                   <div className="p-20 text-center text-gray-400 italic">No logs found for this selection</div>
                 ) : (
                   filteredTransactions.map((t) => (

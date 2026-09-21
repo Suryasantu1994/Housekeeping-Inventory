@@ -155,6 +155,7 @@ export default function Purchases() {
               quantity: item.quantity,
               unitPrice: item.unitPrice,
               timestamp: new Date().toISOString(),
+              building: 'General Inventory',
               userId: currentUser?.uid,
               userName: currentUser?.displayName || 'System',
               note: `Purchase Order Received (${purchase.vendorName})`
