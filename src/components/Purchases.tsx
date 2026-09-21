@@ -15,6 +15,8 @@ export default function Purchases() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [receivingId, setReceivingId] = useState<string | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const [formData, setFormData] = useState({
     vendorId: '',
@@ -180,6 +182,13 @@ export default function Purchases() {
     }
   };
 
+  const filteredPurchases = purchases.filter(purchase => {
+    const purchaseDate = new Date(purchase.timestamp).toISOString().split('T')[0];
+    if (startDate && purchaseDate < startDate) return false;
+    if (endDate && purchaseDate > endDate) return false;
+    return true;
+  });
+
   return (
     <div className="space-y-8 pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -187,17 +196,47 @@ export default function Purchases() {
           <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tight">Purchases</h2>
           <p className="text-gray-500 font-medium">Manage procurement and vendor orders</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center justify-center gap-3 px-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 active:scale-95"
-        >
-          <Plus className="w-5 h-5" />
-          Create Order
-        </button>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">From</span>
+            <input
+              type="date"
+              className="bg-transparent border-none text-xs font-bold text-gray-900 focus:ring-0 outline-none"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">To</span>
+            <input
+              type="date"
+              className="bg-transparent border-none text-xs font-bold text-gray-900 focus:ring-0 outline-none"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+          {(startDate || endDate) && (
+            <button
+              onClick={() => { setStartDate(''); setEndDate(''); }}
+              className="p-2 text-gray-400 hover:text-gray-900 transition-colors"
+              title="Clear Filters"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center justify-center gap-3 px-8 py-4 bg-gray-900 text-white rounded-2xl font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 active:scale-95"
+          >
+            <Plus className="w-5 h-5" />
+            Create Order
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        {purchases.map((purchase) => (
+        {filteredPurchases.map((purchase) => (
           <motion.div
             key={purchase.id}
             initial={{ opacity: 0, y: 10 }}
@@ -313,7 +352,7 @@ export default function Purchases() {
           </motion.div>
         ))}
 
-        {purchases.length === 0 && (
+        {filteredPurchases.length === 0 && (
           <div className="text-center py-20 bg-white rounded-[3rem] border border-dashed border-gray-200">
             <ShoppingCart className="w-12 h-12 text-gray-200 mx-auto mb-4" />
             <p className="text-gray-400 font-bold uppercase tracking-widest">No purchase orders found</p>
