@@ -1,0 +1,6 @@
+{
+  "name": "Housekeeping Inventory",
+  "description": "A professional management tool for tracking housekeeping materials, monitoring stock levels, and managing replenishments.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

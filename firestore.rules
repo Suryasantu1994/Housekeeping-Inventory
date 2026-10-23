@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128;
+    }
+
+    // Material validation
+    function isValidMaterial(data) {
+      return data.name is string && data.name.size() > 0
+          && data.category is string
+          && data.unit is string
+          && data.currentStock is number
+          && data.minStock is number;
+    }
+
+    match /materials/{materialId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidMaterial(request.resource.data);
+      allow update: if isSignedIn() && isValidMaterial(request.resource.data);
+      allow delete: if isSignedIn();
+    }
+
+    // Building validation
+    match /buildings/{buildingId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Vendor validation
+    match /vendors/{vendorId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    // Transaction validation
+    match /transactions/{transactionId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if false; // Transactions should be immutable
+      allow delete: if isSignedIn();
+    }
+
+    // Purchase validation
+    match /purchases/{purchaseId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    // Other collections (Requisitions, etc. if used)
+    match /requisitions/{requisitionId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "entities": {
+    "Material": {
+      "title": "Material",
+      "description": "Housekeeping material item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "unit": { "type": "string" },
+        "currentStock": { "type": "number" },
+        "minStock": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "vendorId": { "type": "string" },
+        "vendorName": { "type": "string" },
+        "lastRestocked": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "unit", "currentStock"]
+    },
+    "Building": {
+      "title": "Building",
+      "description": "Building or block",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Vendor": {
+      "title": "Vendor",
+      "description": "Material supplier",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "address": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Stock movement transaction",
+      "type": "object",
+      "properties": {
+        "materialId": { "type": "string" },
+        "materialName": { "type": "string" },
+        "type": { "type": "string", "enum": ["in", "out"] },
+        "quantity": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "totalAmount": { "type": "number" },
+        "building": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "note": { "type": "string" }
+      },
+      "required": ["materialId", "type", "quantity", "timestamp"]
+    },
+    "Purchase": {
+      "title": "Purchase",
+      "description": "Purchase order",
+      "type": "object",
+      "properties": {
+        "vendorId": { "type": "string" },
+        "vendorName": { "type": "string" },
+        "items": { "type": "array" },
+        "totalAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "received"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "receivedAt": { "type": "string", "format": "date-time" },
+        "note": { "type": "string" }
+      },
+      "required": ["vendorId", "vendorName", "items", "totalAmount", "status", "timestamp"]
+    }
+  },
+  "firestore": {
+    "materials": {
+      "schema": "Material",
+      "description": "Collection of housekeeping materials"
+    },
+    "buildings": {
+      "schema": "Building",
+      "description": "Collection of buildings"
+    },
+    "vendors": {
+      "schema": "Vendor",
+      "description": "Collection of vendors"
+    },
+    "transactions": {
+      "schema": "Transaction",
+      "description": "Log of stock transactions"
+    },
+    "purchases": {
+      "schema": "Purchase",
+      "description": "Collection of purchase orders"
+    }
+  }
+}
