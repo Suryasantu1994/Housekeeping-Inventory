@@ -83,7 +83,7 @@ export default function MonthlyReport() {
       unsubTrans();
       unsubBuild();
     };
-  }, []);
+  }, [currentProfile]);
 
   const filteredTransactions = transactions.filter(t => {
     try {

@@ -79,7 +79,7 @@ export default function Requisitions() {
       unsubMat();
       unsubBuild();
     };
-  }, []);
+  }, [currentProfile]);
 
   const isAdmin = currentProfile?.role === 'admin';
   const assignedBuildings = currentProfile?.assignedBuildings || [];
@@ -157,37 +157,72 @@ export default function Requisitions() {
 
   const updateStatus = async (id: string, status: RequisitionStatus) => {
     try {
-      if (status === 'completed') {
-        const req = requisitions.find(r => r.id === id);
-        if (req) {
-          // Process each item in the requisition
-          for (const item of req.items) {
-            const material = materials.find(m => m.id === item.materialId);
-            const materialRef = doc(db, 'materials', item.materialId);
-            
-            // Deduct stock
-            await updateDoc(materialRef, {
-              currentStock: increment(-item.quantity)
-            });
+      const req = requisitions.find(r => r.id === id);
+      if (!req) return;
 
-            // Log transaction
-            await addDoc(collection(db, 'transactions'), {
-              materialId: item.materialId,
-              materialName: item.materialName,
-              quantity: item.quantity,
-              unitPrice: material?.unitPrice || 0,
-              totalAmount: item.quantity * (material?.unitPrice || 0),
-              type: 'out',
-              timestamp: serverTimestamp(),
-              building: req.building,
-              userId: currentUser?.uid,
-              userName: currentUser?.displayName || 'System',
-              note: `Requisition ${req.id} - ${req.building} (${req.requesterName})`
-            });
-          }
+      if (status === 'completed') {
+        // Process each item in the requisition
+        for (const item of req.items) {
+          const material = materials.find(m => m.id === item.materialId);
+          const materialRef = doc(db, 'materials', item.materialId);
+          
+          // Deduct stock
+          await updateDoc(materialRef, {
+            currentStock: increment(-item.quantity)
+          });
+
+          // Log transaction
+          await addDoc(collection(db, 'transactions'), {
+            materialId: item.materialId,
+            materialName: item.materialName,
+            quantity: item.quantity,
+            unitPrice: material?.unitPrice || 0,
+            totalAmount: item.quantity * (material?.unitPrice || 0),
+            type: 'out',
+            timestamp: serverTimestamp(),
+            building: req.building,
+            userId: currentUser?.uid,
+            userName: currentUser?.displayName || 'System',
+            note: `Requisition ${req.id} - ${req.building} (${req.requesterName})`
+          });
         }
       }
+
+      // Update the status
       await updateDoc(doc(db, 'requisitions', id), { status });
+
+      // Create a notification for the staff member who raised the requisition
+      if (req.userId) {
+        let title = '';
+        let type: 'info' | 'success' | 'warning' | 'error' = 'info';
+        
+        switch (status) {
+          case 'approved':
+            title = 'Requisition Approved';
+            type = 'success';
+            break;
+          case 'rejected':
+            title = 'Requisition Rejected';
+            type = 'error';
+            break;
+          case 'completed':
+            title = 'Requisition Completed';
+            type = 'success';
+            break;
+        }
+
+        if (title) {
+          await addDoc(collection(db, 'notifications'), {
+            userId: req.userId,
+            title,
+            message: `Your requisition for ${req.building} has been ${status}.`,
+            type,
+            read: false,
+            timestamp: serverTimestamp(),
+            link: 'requisitions'
+          });
+        }
+      }
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `requisitions/${id}`);
     }
@@ -345,9 +380,14 @@ export default function Requisitions() {
     }
   };
 
+  const [statusFilter, setStatusFilter] = useState<RequisitionStatus | 'all'>('all');
+
   const filteredRequisitions = requisitions.filter(req => {
     // Building Access Filter
     if (!isAdmin && !assignedBuildings.includes(req.building)) return false;
+
+    // Status Filter
+    if (statusFilter !== 'all' && req.status !== statusFilter) return false;
 
     // Date Filter
     if (!filterDate) return true;
@@ -359,36 +399,46 @@ export default function Requisitions() {
     }
   });
 
+  const pendingCount = requisitions.filter(r => r.status === 'pending').length;
+
   if (loading) {
     return <div className="flex items-center justify-center h-64 text-gray-400">Loading requisitions...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-6">
         <div>
           <h2 className="text-2xl font-black text-gray-900 tracking-tight">REQUISITIONS</h2>
           <p className="text-sm text-gray-500 font-medium">Manage material requests and approvals</p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Filter Date:</span>
+
+        <div className="flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Status:</span>
+            <select 
+              className="bg-transparent border-none text-xs font-bold text-gray-900 focus:ring-0 outline-none cursor-pointer"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending Approval</option>
+              <option value="approved">Approved</option>
+              <option value="completed">Completed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm">
+            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-nowrap">Date:</span>
             <input
               type="date"
-              className="px-4 py-2 bg-white border border-gray-100 rounded-xl text-sm font-bold focus:ring-2 focus:ring-gray-900 outline-none transition-all shadow-sm"
+              className="bg-transparent border-none text-xs font-bold text-gray-900 focus:ring-0 outline-none cursor-pointer"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
             />
-            {filterDate && (
-              <button
-                onClick={() => setFilterDate('')}
-                className="p-2 text-gray-400 hover:text-red-600 transition-colors"
-                title="Clear Date Filter"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
           </div>
+
           <button
             onClick={() => setShowAddForm(true)}
             className="bg-gray-900 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-gray-800 transition-all shadow-lg shadow-gray-200"
@@ -398,6 +448,30 @@ export default function Requisitions() {
           </button>
         </div>
       </div>
+
+      {isAdmin && pendingCount > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-amber-50 border border-amber-200 p-6 rounded-2xl flex items-center justify-between"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-amber-100 text-amber-600 rounded-xl">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <h4 className="font-black text-amber-900 leading-tight">PENDING APPROVALS</h4>
+              <p className="text-sm text-amber-700 font-medium">There are {pendingCount} requisitions waiting for your review.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setStatusFilter('pending')}
+            className="px-6 py-2 bg-amber-600 text-white text-xs font-black uppercase tracking-widest rounded-lg hover:bg-amber-700 transition-all"
+          >
+            Review Now
+          </button>
+        </motion.div>
+      )}
 
       <AnimatePresence>
         {showAddForm && (

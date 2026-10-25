@@ -101,7 +101,7 @@ export default function Dashboard() {
       unsubTransactions();
       unsubBuildings();
     };
-  }, []);
+  }, [currentProfile]);
 
   const alerts: StockAlert[] = materials
     .filter(m => {

@@ -43,6 +43,7 @@ export interface Requisition {
   building: string;
   status: RequisitionStatus;
   requesterName: string;
+  userId?: string;
   timestamp: string;
   date: string;
   note?: string;
@@ -98,4 +99,15 @@ export interface UserProfile {
   displayName: string;
   role: UserRole;
   assignedBuildings: string[]; // List of building names or IDs
+}
+
+export interface AppNotification {
+  id: string;
+  userId: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  read: boolean;
+  timestamp: any; // serverTimestamp or ISO string
+  link?: string;
 }

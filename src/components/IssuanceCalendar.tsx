@@ -71,7 +71,7 @@ export default function IssuanceCalendar() {
       unsubscribeT();
       unsubscribeM();
     };
-  }, []);
+  }, [currentProfile]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);

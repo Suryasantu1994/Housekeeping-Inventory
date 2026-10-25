@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { LayoutDashboard, List, History, Settings, Plus, Bell, FileText, Menu, ChevronLeft, ChevronRight, LogIn, LogOut, Truck, ShoppingCart, BookOpen, FileSpreadsheet } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { collection, query, where, orderBy, limit, onSnapshot, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { db, formatFirebaseTimestamp } from '../lib/firebase';
+import { AppNotification } from '../types';
 import logo from '../assets/images/hk_logo_1782666998761.jpg';
 import Dashboard from './Dashboard';
 import MaterialList from './MaterialList';
@@ -53,6 +56,48 @@ export default function Layout() {
       }
     }
   }, [profile, loading, isAdmin, currentView]);
+
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  // Listen to notifications
+  React.useEffect(() => {
+    if (!user) return;
+    const q = query(
+      collection(db, 'notifications'),
+      where('userId', '==', user.uid),
+      orderBy('timestamp', 'desc'),
+      limit(20)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppNotification)));
+    });
+
+    return () => unsub();
+  }, [user]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), { read: true });
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const batch = writeBatch(db);
+      notifications.filter(n => !n.read).forEach(n => {
+        batch.update(doc(db, 'notifications', n.id), { read: true });
+      });
+      await batch.commit();
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+    }
+  };
 
   if (loading) {
     return (
@@ -191,10 +236,77 @@ export default function Layout() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button className="p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors relative">
-              <Bell className="w-5 h-5 text-gray-500" />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`p-3 bg-white border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors relative ${showNotifications ? 'bg-gray-50' : ''}`}
+              >
+                <Bell className="w-5 h-5 text-gray-500" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-4 h-4 bg-red-500 text-white text-[8px] font-black flex items-center justify-center rounded-full border-2 border-white">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowNotifications(false)}
+                    />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-4 w-80 bg-white rounded-3xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+                    >
+                      <div className="p-4 border-b border-gray-50 flex items-center justify-between">
+                        <h3 className="font-black text-xs uppercase tracking-widest text-gray-400">Notifications</h3>
+                        {unreadCount > 0 && (
+                          <button 
+                            onClick={markAllAsRead}
+                            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto">
+                        {notifications.length > 0 ? (
+                          notifications.map((n) => (
+                            <div 
+                              key={n.id}
+                              onClick={() => {
+                                markAsRead(n.id);
+                                if (n.link) setCurrentView(n.link as any);
+                                setShowNotifications(false);
+                              }}
+                              className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors relative ${!n.read ? 'bg-blue-50/30' : ''}`}
+                            >
+                              {!n.read && (
+                                <div className="absolute left-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full" />
+                              )}
+                              <p className={`text-sm font-black text-gray-900 ${!n.read ? 'pr-4' : ''}`}>{n.title}</p>
+                              <p className="text-xs text-gray-500 mt-1">{n.message}</p>
+                              <p className="text-[9px] text-gray-400 font-bold mt-2 uppercase tracking-widest">
+                                {n.timestamp ? formatFirebaseTimestamp(n.timestamp).split('T')[0] : 'Just now'}
+                              </p>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-8 text-center">
+                            <Bell className="w-8 h-8 text-gray-200 mx-auto mb-3" />
+                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">No notifications</p>
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             <div className="flex items-center gap-3 pl-4 border-l border-gray-100 group relative">
               {user.photoURL ? (
                 <img src={user.photoURL} alt={user.displayName || 'User'} className="w-10 h-10 rounded-full shrink-0 border-2 border-gray-100" />

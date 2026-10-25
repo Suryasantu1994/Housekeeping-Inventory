@@ -1,48 +1,51 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Default deny catch-all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Global helpers
+    
+    // Core check: Is the user signed in?
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Core check: Is this the primary admin?
+    function isPrimaryAdmin() {
+      return isSignedIn() && request.auth.token.email == 'vkatakam@gitam.edu';
+    }
+
+    // Helper: Check if a user is an admin via their profile document
+    // NOTE: This triggers a read on the userProfiles collection.
+    function isProfileAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Comprehensive Admin check
     function isAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        (request.auth.token.email_verified == true &&
-         exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin')
+      return isPrimaryAdmin() || isProfileAdmin();
+    }
+
+    // Building-level access check
+    function hasBuildingAccess(buildingName) {
+      return isPrimaryAdmin() || (
+        isSignedIn() && 
+        exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && (
+          get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin' ||
+          buildingName in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings
+        )
       );
     }
 
-    function isUser(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    function hasBuildingAccess(buildingName) {
-      return isAdmin() || 
-        (isSignedIn() && 
-         exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) &&
-         buildingName in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings);
-    }
-
-    // User Profile validation
+    // User Profile Security
     match /userProfiles/{userId} {
-      // Users can always read their own profile
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      // Admins can read any profile
-      allow read: if isAdmin();
+      // Users can always access their own profile.
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
       
-      allow create: if isSignedIn() && request.auth.uid == userId;
+      // Primary admin can access everything.
+      allow read, write: if isPrimaryAdmin();
       
-      allow update: if isSignedIn() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'assignedBuildings']);
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      // Other admins can manage profiles (except the primary admin's if it exists).
+      allow read, update, delete: if isSignedIn() && userId != request.auth.uid && isProfileAdmin();
     }
 
     // Material validation
@@ -65,7 +68,7 @@ service cloud.firestore {
 
     // Transaction validation
     match /transactions/{transactionId} {
-      allow read: if isSignedIn() && (isAdmin() || hasBuildingAccess(resource.data.building));
+      allow read: if isSignedIn() && (isPrimaryAdmin() || hasBuildingAccess(resource.data.building));
       allow create: if isSignedIn();
       allow update: if false;
       allow delete: if isAdmin();
@@ -79,10 +82,18 @@ service cloud.firestore {
 
     // Requisition validation
     match /requisitions/{requisitionId} {
-      allow read: if isSignedIn() && (isAdmin() || hasBuildingAccess(resource.data.building));
-      allow create: if isSignedIn() && hasBuildingAccess(request.resource.data.building);
-      allow update: if isSignedIn() && (isAdmin() || hasBuildingAccess(resource.data.building));
+      allow read: if isSignedIn() && (isPrimaryAdmin() || hasBuildingAccess(resource.data.building));
+      allow create: if isSignedIn() && (isPrimaryAdmin() || hasBuildingAccess(request.resource.data.building));
+      allow update: if isSignedIn() && (isPrimaryAdmin() || hasBuildingAccess(resource.data.building));
       allow delete: if isAdmin();
+    }
+
+    // Notification validation
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (isPrimaryAdmin() || request.auth.uid == resource.data.userId || isProfileAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.userId || isPrimaryAdmin());
+      allow delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isPrimaryAdmin());
     }
   }
 }
