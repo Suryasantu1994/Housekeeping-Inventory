@@ -123,12 +123,25 @@ export default function Purchases() {
       if (editingPurchase.status === 'received') {
         // If already received, we MUST adjust material stock levels
         await runTransaction(db, async (transaction) => {
-          // 1. Revert old stock additions
+          // 1. Gather all material refs needed for both old and new items
+          const oldMaterialIds = editingPurchase.items.map(item => item.materialId).filter(Boolean);
+          const newMaterialIds = formData.items.map(item => item.materialId).filter(Boolean);
+          const uniqueMaterialIds = Array.from(new Set([...oldMaterialIds, ...newMaterialIds]));
+          
+          const materialRefs = uniqueMaterialIds.map(id => doc(db, 'materials', id!));
+          const purchaseRef = doc(db, 'purchases', editingPurchase.id);
+
+          // 2. DO ALL READS FIRST
+          const materialSnaps = await Promise.all(materialRefs.map(ref => transaction.get(ref)));
+          await transaction.get(purchaseRef);
+
+          // 3. NOW DO ALL WRITES
+          // Revert old stock additions
           for (const oldItem of editingPurchase.items) {
             if (oldItem.materialId) {
               const materialRef = doc(db, 'materials', oldItem.materialId);
-              const matSnap = await transaction.get(materialRef);
-              if (matSnap.exists()) {
+              const snapIndex = uniqueMaterialIds.indexOf(oldItem.materialId);
+              if (snapIndex !== -1 && materialSnaps[snapIndex].exists()) {
                 transaction.update(materialRef, {
                   currentStock: increment(-oldItem.quantity)
                 });
@@ -136,12 +149,12 @@ export default function Purchases() {
             }
           }
 
-          // 2. Apply new stock additions
+          // Apply new stock additions
           for (const newItem of formData.items) {
             if (newItem.materialId) {
               const materialRef = doc(db, 'materials', newItem.materialId);
-              const matSnap = await transaction.get(materialRef);
-              if (matSnap.exists()) {
+              const snapIndex = uniqueMaterialIds.indexOf(newItem.materialId);
+              if (snapIndex !== -1 && materialSnaps[snapIndex].exists()) {
                 transaction.update(materialRef, {
                   currentStock: increment(newItem.quantity)
                 });
@@ -149,7 +162,7 @@ export default function Purchases() {
             }
           }
 
-          // 3. Update purchase document
+          // Update purchase document
           transaction.update(purchaseRef, {
             vendorId: formData.vendorId,
             vendorName: vendor?.name || 'Unknown',
@@ -159,10 +172,10 @@ export default function Purchases() {
             updatedAt: serverTimestamp()
           });
 
-          // 4. Log the correction in transactions (simplified)
+          // Log the correction in transactions
           const transRef = doc(collection(db, 'transactions'));
           transaction.set(transRef, {
-            type: 'in', // Still a stock-in event, but a correction
+            type: 'in',
             quantity: 0,
             unitPrice: 0,
             totalAmount: 0,
