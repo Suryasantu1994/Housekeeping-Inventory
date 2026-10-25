@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, onSnapshot, query, where, orderBy } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, formatFirebaseTimestamp } from '../lib/firebase';
 import { Transaction, Material } from '../types';
 import { 
   format, 
@@ -49,7 +49,14 @@ export default function IssuanceCalendar() {
 
     const unsubscribeT = tQuery ? onSnapshot(tQuery, 
       (snapshot) => {
-        const tData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+        const tData = snapshot.docs.map(doc => {
+          const data = doc.data();
+          return { 
+            id: doc.id, 
+            ...data,
+            timestamp: formatFirebaseTimestamp(data.timestamp)
+          } as Transaction;
+        });
         setTransactions(tData);
         setLoading(false);
       },
