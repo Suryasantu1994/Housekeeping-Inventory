@@ -68,6 +68,19 @@
         }
       },
       "required": ["materialId", "type", "quantity", "timestamp"]
+    },
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user roles and building assignments.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "staff"] },
+        "assignedBuildings": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["uid", "email", "role", "assignedBuildings"]
     }
   },
   "firestore": {
@@ -78,6 +91,10 @@
     "/transactions/{transactionId}": {
       "schema": "Transaction",
       "description": "Log of all stock movements"
+    },
+    "/userProfiles/{uid}": {
+      "schema": "UserProfile",
+      "description": "User profile data"
     }
   }
 }

@@ -17,8 +17,10 @@ import {
 } from 'date-fns';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Package, Building2, Clock, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function IssuanceCalendar() {
+  const { profile: currentProfile } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -26,20 +28,37 @@ export default function IssuanceCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   useEffect(() => {
-    const tQuery = query(
-      collection(db, 'transactions'),
-      where('type', '==', 'out'),
-      orderBy('timestamp', 'desc')
-    );
+    const isAdmin = currentProfile?.role === 'admin';
+    const assignedBuildings = currentProfile?.assignedBuildings || [];
 
-    const unsubscribeT = onSnapshot(tQuery, 
+    let tQuery;
+    if (isAdmin) {
+      tQuery = query(
+        collection(db, 'transactions'),
+        where('type', '==', 'out'),
+        orderBy('timestamp', 'desc')
+      );
+    } else if (assignedBuildings.length > 0) {
+      tQuery = query(
+        collection(db, 'transactions'),
+        where('type', '==', 'out'),
+        where('building', 'in', assignedBuildings.slice(0, 10)),
+        orderBy('timestamp', 'desc')
+      );
+    }
+
+    const unsubscribeT = tQuery ? onSnapshot(tQuery, 
       (snapshot) => {
         const tData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
         setTransactions(tData);
         setLoading(false);
       },
       (error) => handleFirestoreError(error, OperationType.LIST, 'transactions')
-    );
+    ) : (() => {
+      setTransactions([]);
+      setLoading(false);
+      return () => {};
+    })();
 
     const unsubscribeM = onSnapshot(collection(db, 'materials'), 
       (snapshot) => {

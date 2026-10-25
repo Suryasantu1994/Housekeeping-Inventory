@@ -4,8 +4,10 @@ import { db, handleFirestoreError, OperationType, formatFirebaseTimestamp } from
 import { Transaction, Building } from '../types';
 import { Clock, ArrowUpRight, ArrowDownRight, Trash2, Building2, ChevronRight, ArrowLeft, User as UserIcon, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function TransactionHistory() {
+  const { user: currentUser, profile: currentProfile } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [buildingTransactions, setBuildingTransactions] = useState<Transaction[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -27,7 +29,10 @@ export default function TransactionHistory() {
     
     if (selectedBuilding === 'General Inventory') {
       // General inventory includes transactions with no building or 'General Inventory'
-      q = query(collection(db, tPath));
+      q = query(
+        collection(db, tPath),
+        where('building', '==', 'General Inventory')
+      );
     } else {
       q = query(
         collection(db, tPath),
@@ -74,9 +79,23 @@ export default function TransactionHistory() {
     const tPath = 'transactions';
     const bPath = 'buildings';
     
+    const isAdmin = currentProfile?.role === 'admin';
+    const assignedBuildings = currentProfile?.assignedBuildings || [];
+
     // Base query for building summary counts (limit 1000 for counts)
-    const qSummary = query(collection(db, tPath), orderBy('timestamp', 'desc'), limit(1000));
-    const unsubSummary = onSnapshot(qSummary, (snapshot) => {
+    let qSummary;
+    if (isAdmin) {
+      qSummary = query(collection(db, tPath), orderBy('timestamp', 'desc'), limit(1000));
+    } else if (assignedBuildings.length > 0) {
+      qSummary = query(
+        collection(db, tPath), 
+        where('building', 'in', assignedBuildings.slice(0, 10)),
+        orderBy('timestamp', 'desc'), 
+        limit(1000)
+      );
+    }
+
+    const unsubSummary = qSummary ? onSnapshot(qSummary, (snapshot) => {
       const docs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
@@ -89,7 +108,11 @@ export default function TransactionHistory() {
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, tPath);
-    });
+    }) : (() => {
+      setTransactions([]);
+      setLoading(false);
+      return () => {};
+    })();
 
     const qB = query(collection(db, bPath), orderBy('name', 'asc'));
     const unsubB = onSnapshot(qB, (snapshot) => {
@@ -100,7 +123,7 @@ export default function TransactionHistory() {
       unsubSummary();
       unsubB();
     };
-  }, []);
+  }, [currentProfile]);
 
   const handleDelete = async (id: string) => {
     const path = `transactions/${id}`;
@@ -112,13 +135,20 @@ export default function TransactionHistory() {
     }
   };
 
-  const buildingGroups = buildings.map(b => {
-    const buildingName = b.name.trim().toLowerCase();
-    return {
-      name: b.name,
-      count: transactions.filter(t => t.building?.trim().toLowerCase() === buildingName).length
-    };
-  });
+  const isAdmin = currentProfile?.role === 'admin';
+  const assignedBuildings = currentProfile?.assignedBuildings || [];
+
+  const buildingGroups = buildings
+    .filter(b => isAdmin || assignedBuildings.includes(b.name))
+    .map(b => {
+      const buildingName = b.name.trim().toLowerCase();
+      return {
+        name: b.name,
+        count: transactions.filter(t => t.building?.trim().toLowerCase() === buildingName).length
+      };
+    });
+
+  const hasGeneralAccess = isAdmin || assignedBuildings.includes('General Inventory');
 
   const globalTransactionsCount = transactions.filter(t => {
     const b = t.building?.trim().toLowerCase();
@@ -158,19 +188,21 @@ export default function TransactionHistory() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <button
-                onClick={() => setSelectedBuilding('General Inventory')}
-                className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all text-left group"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-600 transition-colors">
-                    <Clock className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />
+              {hasGeneralAccess && (
+                <button
+                  onClick={() => setSelectedBuilding('General Inventory')}
+                  className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all text-left group"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 bg-blue-50 rounded-2xl group-hover:bg-blue-600 transition-colors">
+                      <Clock className="w-6 h-6 text-blue-600 group-hover:text-white transition-colors" />
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" />
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" />
-                </div>
-                <h3 className="text-lg font-black text-gray-900 mb-1">General Inventory</h3>
-                <p className="text-sm text-gray-500 font-medium">{globalTransactionsCount} logs</p>
-              </button>
+                  <h3 className="text-lg font-black text-gray-900 mb-1">General Inventory</h3>
+                  <p className="text-sm text-gray-500 font-medium">{globalTransactionsCount} logs</p>
+                </button>
+              )}
 
               {buildingGroups.map((group) => (
                 <button
@@ -278,29 +310,31 @@ export default function TransactionHistory() {
                             </p>
                           </div>
                           
-                          {deleteConfirm === t.id ? (
-                            <div className="flex items-center gap-1 bg-red-50 rounded-xl p-1">
-                              <button
-                                onClick={() => handleDelete(t.id)}
-                                className="px-3 py-1.5 bg-red-600 text-white text-[10px] font-black rounded-lg uppercase hover:bg-red-700 transition-colors"
+                          {isAdmin && (
+                            deleteConfirm === t.id ? (
+                              <div className="flex items-center gap-1 bg-red-50 rounded-xl p-1">
+                                <button
+                                  onClick={() => handleDelete(t.id)}
+                                  className="px-3 py-1.5 bg-red-600 text-white text-[10px] font-black rounded-lg uppercase hover:bg-red-700 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                                <button
+                                  onClick={() => setDeleteConfirm(null)}
+                                  className="px-3 py-1.5 text-gray-400 text-[10px] font-black rounded-lg uppercase hover:text-gray-600"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button 
+                                onClick={() => setDeleteConfirm(t.id)}
+                                className="p-3 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-xl transition-colors"
+                                title="Delete Log"
                               >
-                                Delete
+                                <Trash2 className="w-5 h-5" />
                               </button>
-                              <button
-                                onClick={() => setDeleteConfirm(null)}
-                                className="px-3 py-1.5 text-gray-400 text-[10px] font-black rounded-lg uppercase hover:text-gray-600"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          ) : (
-                            <button 
-                              onClick={() => setDeleteConfirm(t.id)}
-                              className="p-3 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-xl transition-colors"
-                              title="Delete Log"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+                            )
                           )}
                         </div>
                       </div>

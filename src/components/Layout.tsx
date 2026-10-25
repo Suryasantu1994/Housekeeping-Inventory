@@ -19,10 +19,40 @@ import { useAuth } from '../contexts/AuthContext';
 type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'vendors' | 'purchases' | 'ledger' | 'indent' | 'report' | 'settings';
 
 export default function Layout() {
-  const { user, loading, signInWithGoogle, logout } = useAuth();
+  const { user, profile, loading, signInWithGoogle, logout } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const isAdmin = profile?.role === 'admin';
+
+  // Define full navigation
+  const allNavigation = [
+    { name: 'Dashboard', icon: LayoutDashboard, view: 'dashboard' as View },
+    { name: 'Inventory', icon: List, view: 'inventory' as View, adminOnly: true },
+    { name: 'Vendors', icon: Truck, view: 'vendors' as View, adminOnly: true },
+    { name: 'Stock Indent', icon: FileSpreadsheet, view: 'indent' as View, adminOnly: true },
+    { name: 'Purchases', icon: ShoppingCart, view: 'purchases' as View, adminOnly: true },
+    { name: 'Stock Ledger', icon: BookOpen, view: 'ledger' as View, adminOnly: true },
+    { name: 'History', icon: History, view: 'history' as View },
+    { name: 'Monthly Report', icon: FileSpreadsheet, view: 'report' as View },
+    { name: 'Issuance Calendar', icon: Bell, view: 'calendar' as View },
+    { name: 'Requisitions', icon: FileText, view: 'requisitions' as View },
+    { name: 'Settings', icon: Settings, view: 'settings' as View, adminOnly: true },
+  ];
+
+  // Filter navigation based on role
+  const navigation = allNavigation.filter(item => isAdmin || !item.adminOnly);
+
+  // Effect to handle view redirection if current view becomes restricted
+  React.useEffect(() => {
+    if (!loading && profile) {
+      const isCurrentViewRestricted = allNavigation.find(n => n.view === currentView)?.adminOnly && !isAdmin;
+      if (isCurrentViewRestricted) {
+        setCurrentView('requisitions'); // Default staff view
+      }
+    }
+  }, [profile, loading, isAdmin, currentView]);
 
   if (loading) {
     return (
@@ -85,20 +115,6 @@ export default function Layout() {
     );
   }
 
-  const navigation = [
-    { name: 'Dashboard', icon: LayoutDashboard, view: 'dashboard' as View },
-    { name: 'Inventory', icon: List, view: 'inventory' as View },
-    { name: 'Vendors', icon: Truck, view: 'vendors' as View },
-    { name: 'Stock Indent', icon: FileSpreadsheet, view: 'indent' as View },
-    { name: 'Purchases', icon: ShoppingCart, view: 'purchases' as View },
-    { name: 'Stock Ledger', icon: BookOpen, view: 'ledger' as View },
-    { name: 'History', icon: History, view: 'history' as View },
-    { name: 'Monthly Report', icon: FileSpreadsheet, view: 'report' as View },
-    { name: 'Issuance Calendar', icon: Bell, view: 'calendar' as View },
-    { name: 'Requisitions', icon: FileText, view: 'requisitions' as View },
-    { name: 'Settings', icon: Settings, view: 'settings' as View },
-  ];
-
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex transition-all duration-300">
       {/* Sidebar */}
@@ -142,16 +158,18 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="mt-auto pt-6 border-t border-gray-50">
-            <button 
-              onClick={() => setShowAddForm(true)}
-              title={isCollapsed ? 'Add Material' : ''}
-              className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-100 ${isCollapsed ? 'px-0' : ''}`}
-            >
-              <Plus className="w-5 h-5 shrink-0" />
-              {!isCollapsed && <span className="whitespace-nowrap">Add Material</span>}
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="mt-auto pt-6 border-t border-gray-50">
+              <button 
+                onClick={() => setShowAddForm(true)}
+                title={isCollapsed ? 'Add Material' : ''}
+                className={`w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-100 ${isCollapsed ? 'px-0' : ''}`}
+              >
+                <Plus className="w-5 h-5 shrink-0" />
+                {!isCollapsed && <span className="whitespace-nowrap">Add Material</span>}
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

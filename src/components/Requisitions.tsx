@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Requisitions() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, profile: currentProfile } = useAuth();
   const [requisitions, setRequisitions] = useState<Requisition[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -31,8 +31,21 @@ export default function Requisitions() {
     const matPath = 'materials';
     const buildPath = 'buildings';
     
-    const qReq = query(collection(db, reqPath), orderBy('timestamp', 'desc'));
-    const unsubReq = onSnapshot(qReq, (snapshot) => {
+    const isAdmin = currentProfile?.role === 'admin';
+    const assignedBuildings = currentProfile?.assignedBuildings || [];
+
+    let qReq;
+    if (isAdmin) {
+      qReq = query(collection(db, reqPath), orderBy('timestamp', 'desc'));
+    } else if (assignedBuildings.length > 0) {
+      qReq = query(
+        collection(db, reqPath), 
+        where('building', 'in', assignedBuildings.slice(0, 10)),
+        orderBy('timestamp', 'desc')
+      );
+    }
+
+    const unsubReq = qReq ? onSnapshot(qReq, (snapshot) => {
       const docs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
@@ -45,7 +58,11 @@ export default function Requisitions() {
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, reqPath);
-    });
+    }) : (() => {
+      setRequisitions([]);
+      setLoading(false);
+      return () => {};
+    })();
 
     const qMat = query(collection(db, matPath), orderBy('name', 'asc'));
     const unsubMat = onSnapshot(qMat, (snapshot) => {
@@ -63,6 +80,11 @@ export default function Requisitions() {
       unsubBuild();
     };
   }, []);
+
+  const isAdmin = currentProfile?.role === 'admin';
+  const assignedBuildings = currentProfile?.assignedBuildings || [];
+
+  const availableBuildings = buildings.filter(b => isAdmin || assignedBuildings.includes(b.name));
 
   const addItem = () => {
     setFormData(prev => ({
@@ -324,6 +346,10 @@ export default function Requisitions() {
   };
 
   const filteredRequisitions = requisitions.filter(req => {
+    // Building Access Filter
+    if (!isAdmin && !assignedBuildings.includes(req.building)) return false;
+
+    // Date Filter
     if (!filterDate) return true;
     try {
       const reqDate = req.date || (req.timestamp ? req.timestamp.split('T')[0] : '');
@@ -415,7 +441,7 @@ export default function Requisitions() {
                         onChange={(e) => setFormData(prev => ({ ...prev, building: e.target.value }))}
                       >
                         <option value="">Select Building...</option>
-                        {buildings.map(b => (
+                        {availableBuildings.map(b => (
                           <option key={b.id} value={b.name}>{b.name}</option>
                         ))}
                       </select>
@@ -604,7 +630,7 @@ export default function Requisitions() {
                       value={editingRequisition.building}
                       onChange={(e) => setEditingRequisition({ ...editingRequisition, building: e.target.value })}
                     >
-                      {buildings.map(b => (
+                      {availableBuildings.map(b => (
                         <option key={b.id} value={b.name}>{b.name}</option>
                       ))}
                     </select>
@@ -782,7 +808,7 @@ export default function Requisitions() {
 
             <div className="mt-6 pt-4 border-t border-gray-50 flex items-center justify-between gap-2">
               <div className="flex gap-2">
-                {req.status === 'pending' && (
+                {isAdmin && req.status === 'pending' && (
                   <>
                     <button
                       onClick={() => updateStatus(req.id, 'approved')}
@@ -800,7 +826,7 @@ export default function Requisitions() {
                     </button>
                   </>
                 )}
-                {req.status === 'approved' && (
+                {isAdmin && req.status === 'approved' && (
                   <button
                     onClick={() => updateStatus(req.id, 'completed')}
                     className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-colors"
@@ -809,38 +835,42 @@ export default function Requisitions() {
                     <CheckCircle2 className="w-4 h-4" />
                   </button>
                 )}
-                <button
-                  onClick={() => setEditingRequisition(req)}
-                  className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
-                  title="Edit Requisition"
-                >
-                  <Pencil className="w-4 h-4" />
-                </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => setEditingRequisition(req)}
+                    className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                    title="Edit Requisition"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
-              {deleteConfirm === req.id ? (
-                <div className="flex items-center gap-1">
+              {isAdmin && (
+                deleteConfirm === req.id ? (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(req.id)}
+                      className="px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded uppercase hover:bg-red-700"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(null)}
+                      className="px-2 py-1 text-gray-400 text-[10px] font-bold rounded uppercase hover:text-gray-600"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
                   <button
-                    onClick={() => handleDelete(req.id)}
-                    className="px-2 py-1 bg-red-600 text-white text-[10px] font-bold rounded uppercase hover:bg-red-700"
+                    onClick={() => setDeleteConfirm(req.id)}
+                    className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition-colors"
+                    title="Delete Request"
                   >
-                    Confirm
+                    <Trash2 className="w-4 h-4" />
                   </button>
-                  <button
-                    onClick={() => setDeleteConfirm(null)}
-                    className="px-2 py-1 text-gray-400 text-[10px] font-bold rounded uppercase hover:text-gray-600"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setDeleteConfirm(req.id)}
-                  className="p-2 hover:bg-red-50 text-red-400 hover:text-red-600 rounded-lg transition-colors"
-                  title="Delete Request"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                )
               )}
             </div>
           </motion.div>

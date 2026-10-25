@@ -11,58 +11,78 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128;
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'vkatakam@gitam.edu' ||
+        (request.auth.token.email_verified == true &&
+         exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function hasBuildingAccess(buildingName) {
+      return isAdmin() || 
+        (isSignedIn() && 
+         exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) &&
+         buildingName in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings);
+    }
+
+    // User Profile validation
+    match /userProfiles/{userId} {
+      // Users can always read their own profile
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      // Admins can read any profile
+      allow read: if isAdmin();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      allow update: if isSignedIn() && request.auth.uid == userId && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'assignedBuildings']);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Material validation
-    function isValidMaterial(data) {
-      return data.name is string && data.name.size() > 0
-          && data.category is string
-          && data.unit is string
-          && data.currentStock is number
-          && data.minStock is number;
-    }
-
     match /materials/{materialId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidMaterial(request.resource.data);
-      allow update: if isSignedIn() && isValidMaterial(request.resource.data);
-      allow delete: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // Building validation
     match /buildings/{buildingId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // Vendor validation
     match /vendors/{vendorId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // Transaction validation
     match /transactions/{transactionId} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || hasBuildingAccess(resource.data.building));
       allow create: if isSignedIn();
-      allow update: if false; // Transactions should be immutable
-      allow delete: if isSignedIn();
+      allow update: if false;
+      allow delete: if isAdmin();
     }
 
     // Purchase validation
     match /purchases/{purchaseId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    // Other collections (Requisitions, etc. if used)
+    // Requisition validation
     match /requisitions/{requisitionId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read: if isSignedIn() && (isAdmin() || hasBuildingAccess(resource.data.building));
+      allow create: if isSignedIn() && hasBuildingAccess(request.resource.data.building);
+      allow update: if isSignedIn() && (isAdmin() || hasBuildingAccess(resource.data.building));
+      allow delete: if isAdmin();
     }
   }
 }

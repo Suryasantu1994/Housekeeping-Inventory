@@ -89,3 +89,13 @@ export interface StockAlert {
   minStock: number;
   severity: 'low' | 'critical';
 }
+
+export type UserRole = 'admin' | 'staff';
+
+export interface UserProfile {
+  uid: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  assignedBuildings: string[]; // List of building names or IDs
+}

@@ -4,6 +4,7 @@ import { db, handleFirestoreError, OperationType, formatFirebaseTimestamp } from
 import { Transaction, Building } from '../types';
 import { Building2, Calendar, FileText, ChevronDown, Package, IndianRupee, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -18,6 +19,7 @@ interface BuildingSummary {
 }
 
 export default function MonthlyReport() {
+  const { profile: currentProfile } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,13 +34,26 @@ export default function MonthlyReport() {
     // We fetch all 'out' transactions for the selected year and month
     // Note: Since Firestore doesn't have a direct "month" filter on ISO strings easily without ranges,
     // we'll fetch and filter client-side for simplicity, or use ranges if performance becomes an issue.
-    const qTrans = query(
-      collection(db, transPath),
-      where('type', '==', 'out'),
-      orderBy('timestamp', 'desc')
-    );
+    const isAdmin = currentProfile?.role === 'admin';
+    const assignedBuildings = currentProfile?.assignedBuildings || [];
 
-    const unsubTrans = onSnapshot(qTrans, (snapshot) => {
+    let qTrans;
+    if (isAdmin) {
+      qTrans = query(
+        collection(db, transPath),
+        where('type', '==', 'out'),
+        orderBy('timestamp', 'desc')
+      );
+    } else if (assignedBuildings.length > 0) {
+      qTrans = query(
+        collection(db, transPath),
+        where('type', '==', 'out'),
+        where('building', 'in', assignedBuildings.slice(0, 10)),
+        orderBy('timestamp', 'desc')
+      );
+    }
+
+    const unsubTrans = qTrans ? onSnapshot(qTrans, (snapshot) => {
       const docs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
@@ -51,7 +66,11 @@ export default function MonthlyReport() {
       setLoading(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, transPath);
-    });
+    }) : (() => {
+      setTransactions([]);
+      setLoading(false);
+      return () => {};
+    })();
 
     const qBuild = query(collection(db, buildPath), orderBy('name', 'asc'));
     const unsubBuild = onSnapshot(qBuild, (snapshot) => {

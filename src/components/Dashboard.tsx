@@ -1,25 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, formatFirebaseTimestamp } from '../lib/firebase';
 import { Material, StockAlert, Transaction, Building, MaterialCategory } from '../types';
 import { Package, AlertTriangle, ArrowUpRight, ArrowDownRight, ClipboardList, Wallet, Receipt, Building2, PieChart, TrendingUp, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Dashboard() {
+  const { user: currentUser, profile: currentProfile } = useAuth();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState<string>('');
 
+  const isAdmin = currentProfile?.role === 'admin';
+  const assignedBuildings = currentProfile?.assignedBuildings || [];
+
   useEffect(() => {
     const materialsPath = 'materials';
     const transactionsPath = 'transactions';
     const buildingsPath = 'buildings';
+
     const materialsQuery = query(collection(db, materialsPath), orderBy('name', 'asc'));
-    const transactionsQuery = query(collection(db, transactionsPath), orderBy('timestamp', 'desc'));
     const buildingsQuery = query(collection(db, buildingsPath), orderBy('name', 'asc'));
+
+    let transactionsQuery;
+    if (isAdmin) {
+      transactionsQuery = query(collection(db, transactionsPath), orderBy('timestamp', 'desc'));
+    } else if (assignedBuildings.length > 0) {
+      transactionsQuery = query(
+        collection(db, transactionsPath), 
+        where('building', 'in', assignedBuildings.slice(0, 10)),
+        orderBy('timestamp', 'desc')
+      );
+    } else {
+      setTransactions([]);
+      // We still need to wait for materials and buildings
+    }
 
     let materialsUnsubscribed = false;
     let transactionsUnsubscribed = false;
@@ -36,7 +55,7 @@ export default function Dashboard() {
       setLoading(false);
     });
 
-    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+    const unsubTransactions = transactionsQuery ? onSnapshot(transactionsQuery, (snapshot) => {
       const docs = snapshot.docs.map(doc => {
         const data = doc.data();
         return { 
@@ -53,10 +72,21 @@ export default function Dashboard() {
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, transactionsPath);
       setLoading(false);
-    });
+    }) : (() => {
+      transactionsUnsubscribed = true;
+      if (materialsUnsubscribed && transactionsUnsubscribed && buildingsUnsubscribed) {
+        setLoading(false);
+      }
+      return () => {};
+    })();
 
     const unsubBuildings = onSnapshot(buildingsQuery, (snapshot) => {
-      setBuildings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Building)));
+      const allBuildings = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Building));
+      if (isAdmin) {
+        setBuildings(allBuildings);
+      } else {
+        setBuildings(allBuildings.filter(b => assignedBuildings.includes(b.name)));
+      }
       buildingsUnsubscribed = true;
       if (materialsUnsubscribed && transactionsUnsubscribed && buildingsUnsubscribed) {
         setLoading(false);
@@ -194,7 +224,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+      <div className={`grid grid-cols-1 md:grid-cols-2 ${isAdmin ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-3'} gap-6`}>
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -212,81 +242,85 @@ export default function Dashboard() {
           </div>
         </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }}
-          whileHover={{ y: -5, scale: 1.02 }}
-          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
-        >
-          <div className="flex flex-col gap-4">
-            <div className={`p-4 rounded-[1.5rem] w-fit shadow-inner ${lowStockCount > 0 ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
-              <AlertTriangle className="w-7 h-7" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Low Stock Items</p>
-              <h3 className={`text-3xl font-black tracking-tighter ${lowStockCount > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{lowStockCount}</h3>
-            </div>
-          </div>
-        </motion.div>
+        {isAdmin && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.1 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+              className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
+            >
+              <div className="flex flex-col gap-4">
+                <div className={`p-4 rounded-[1.5rem] w-fit shadow-inner ${lowStockCount > 0 ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
+                  <AlertTriangle className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Low Stock Items</p>
+                  <h3 className={`text-3xl font-black tracking-tighter ${lowStockCount > 0 ? 'text-amber-600' : 'text-gray-900'}`}>{lowStockCount}</h3>
+                </div>
+              </div>
+            </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.2 }}
-          whileHover={{ y: -5, scale: 1.02 }}
-          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
-        >
-          <div className="flex flex-col gap-4">
-            <div className="p-4 bg-emerald-50 text-emerald-600 rounded-[1.5rem] w-fit shadow-inner">
-              <Wallet className="w-7 h-7" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Stock Value</p>
-              <h3 className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
-            </div>
-          </div>
-        </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+              className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
+            >
+              <div className="flex flex-col gap-4">
+                <div className="p-4 bg-emerald-50 text-emerald-600 rounded-[1.5rem] w-fit shadow-inner">
+                  <Wallet className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Stock Value</p>
+                  <h3 className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalStockValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                </div>
+              </div>
+            </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          whileHover={{ y: -5, scale: 1.02 }}
-          className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
-        >
-          <div className="flex flex-col gap-4">
-            <div className="p-4 bg-purple-50 text-purple-600 rounded-[1.5rem] w-fit shadow-inner">
-              <Receipt className="w-7 h-7" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Issued Value</p>
-              <h3 className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalIssuedValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
-            </div>
-          </div>
-        </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.3 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+              className="bg-white p-7 rounded-[2rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 transition-all"
+            >
+              <div className="flex flex-col gap-4">
+                <div className="p-4 bg-purple-50 text-purple-600 rounded-[1.5rem] w-fit shadow-inner">
+                  <Receipt className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">Issued Value</p>
+                  <h3 className="text-3xl font-black text-gray-900 tracking-tighter">₹{totalIssuedValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                </div>
+              </div>
+            </motion.div>
 
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-          whileHover={{ y: -5, scale: 1.02 }}
-          onClick={() => setShowIndentModal(true)}
-          className="bg-gray-900 p-7 rounded-[2rem] shadow-2xl shadow-gray-900/20 cursor-pointer hover:bg-gray-800 transition-all group overflow-hidden relative"
-        >
-          <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-150 transition-transform duration-500">
-            <PieChart className="w-24 h-24 text-white" />
-          </div>
-          <div className="flex flex-col gap-4 relative z-10">
-            <div className="p-4 bg-white/10 text-white rounded-[1.5rem] w-fit backdrop-blur-md">
-              <PieChart className="w-7 h-7" />
-            </div>
-            <div>
-              <p className="text-xs font-black text-white/50 uppercase tracking-widest mb-1">Stock Indent</p>
-              <h3 className="text-3xl font-black text-white tracking-tighter">₹{totalStockIndent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
-            </div>
-          </div>
-        </motion.div>
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+              whileHover={{ y: -5, scale: 1.02 }}
+              onClick={() => setShowIndentModal(true)}
+              className="bg-gray-900 p-7 rounded-[2rem] shadow-2xl shadow-gray-900/20 cursor-pointer hover:bg-gray-800 transition-all group overflow-hidden relative"
+            >
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-150 transition-transform duration-500">
+                <PieChart className="w-24 h-24 text-white" />
+              </div>
+              <div className="flex flex-col gap-4 relative z-10">
+                <div className="p-4 bg-white/10 text-white rounded-[1.5rem] w-fit backdrop-blur-md">
+                  <PieChart className="w-7 h-7" />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-white/50 uppercase tracking-widest mb-1">Stock Indent</p>
+                  <h3 className="text-3xl font-black text-white tracking-tighter">₹{totalStockIndent.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</h3>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
       </div>
 
       <AnimatePresence>
@@ -503,8 +537,8 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      <div className={`grid grid-cols-1 ${isAdmin ? 'lg:grid-cols-3' : ''} gap-8`}>
+        <div className={`${isAdmin ? 'lg:col-span-2' : ''} space-y-8`}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -688,63 +722,65 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <motion.div 
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 h-fit sticky top-6"
-        >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="p-3 bg-gray-100 text-gray-400 rounded-2xl">
-              <ClipboardList className="w-6 h-6" />
+        {isAdmin && (
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-xl shadow-gray-200/40 ring-1 ring-black/5 h-fit sticky top-6"
+          >
+            <div className="flex items-center gap-3 mb-8">
+              <div className="p-3 bg-gray-100 text-gray-400 rounded-2xl">
+                <ClipboardList className="w-6 h-6" />
+              </div>
+              <h4 className="font-black text-gray-900 uppercase tracking-tight">Inventory Status</h4>
             </div>
-            <h4 className="font-black text-gray-900 uppercase tracking-tight">Inventory Status</h4>
-          </div>
-          <div className="space-y-6">
-            <div className="space-y-3">
-              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                <span className="text-gray-400">Critical Items</span>
-                <span className={`px-2 py-0.5 rounded-lg ${criticalStockCount > 0 ? 'bg-red-100 text-red-600' : 'text-gray-900'}`}>{criticalStockCount}</span>
-              </div>
-              <div className="w-full bg-gray-50 h-3 rounded-full overflow-hidden shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${totalItems ? (criticalStockCount / totalItems) * 100 : 0}%` }}
-                  transition={{ duration: 1, ease: "circOut" }}
-                  className="bg-red-500 h-full rounded-full" 
-                />
-              </div>
-            </div>
-            
-            <div className="pt-6 border-t border-gray-100 space-y-3">
-              <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-                <span className="text-gray-400">Low Stock Items</span>
-                <span className="text-amber-600">{lowStockCount}</span>
-              </div>
-              <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${totalItems ? (lowStockCount / totalItems) * 100 : 0}%` }}
-                  transition={{ duration: 1, ease: "circOut", delay: 0.2 }}
-                  className="bg-amber-500 h-full rounded-full" 
-                />
-              </div>
-            </div>
-
-            <div className="pt-8 mt-4">
-              <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Healthy</span>
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-gray-400">Critical Items</span>
+                  <span className={`px-2 py-0.5 rounded-lg ${criticalStockCount > 0 ? 'bg-red-100 text-red-600' : 'text-gray-900'}`}>{criticalStockCount}</span>
                 </div>
-                <p className="text-xs text-blue-800 font-bold leading-relaxed">
-                  Your current inventory is well-balanced with {totalItems - lowStockCount} healthy stock levels.
-                </p>
+                <div className="w-full bg-gray-50 h-3 rounded-full overflow-hidden shadow-inner">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${totalItems ? (criticalStockCount / totalItems) * 100 : 0}%` }}
+                    transition={{ duration: 1, ease: "circOut" }}
+                    className="bg-red-500 h-full rounded-full" 
+                  />
+                </div>
+              </div>
+              
+              <div className="pt-6 border-t border-gray-100 space-y-3">
+                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                  <span className="text-gray-400">Low Stock Items</span>
+                  <span className="text-amber-600">{lowStockCount}</span>
+                </div>
+                <div className="w-full bg-gray-100 h-3 rounded-full overflow-hidden shadow-inner">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${totalItems ? (lowStockCount / totalItems) * 100 : 0}%` }}
+                    transition={{ duration: 1, ease: "circOut", delay: 0.2 }}
+                    className="bg-amber-500 h-full rounded-full" 
+                  />
+                </div>
+              </div>
+
+              <div className="pt-8 mt-4">
+                <div className="bg-blue-50 p-6 rounded-[2rem] border border-blue-100">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 bg-blue-100 text-blue-600 rounded-xl">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
+                    <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">Healthy</span>
+                  </div>
+                  <p className="text-xs text-blue-800 font-bold leading-relaxed">
+                    Your current inventory is well-balanced with {totalItems - lowStockCount} healthy stock levels.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        </motion.div>
+          </motion.div>
+        )}
       </div>
     </div>
   );

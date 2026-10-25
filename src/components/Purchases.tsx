@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db, handleFirestoreError, OperationType, formatFirebaseTimestamp } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, updateDoc, doc, serverTimestamp, runTransaction, deleteDoc, increment } from 'firebase/firestore';
 import { Purchase, PurchaseItem, Vendor, Material } from '../types';
-import { Plus, Search, X, ShoppingCart, Truck, Calendar, Save, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Search, X, ShoppingCart, Truck, Calendar, Save, Trash2, CheckCircle, Clock, Pencil } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -15,6 +15,7 @@ export default function Purchases() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [receivingId, setReceivingId] = useState<string | null>(null);
+  const [editingPurchase, setEditingPurchase] = useState<Purchase | null>(null);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -100,11 +101,110 @@ export default function Purchases() {
     });
   };
 
+  const handleEdit = (purchase: Purchase) => {
+    setEditingPurchase(purchase);
+    setFormData({
+      vendorId: purchase.vendorId,
+      items: purchase.items.map(item => ({ ...item })),
+      note: purchase.note || ''
+    });
+    setShowAddForm(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editingPurchase) return;
+    setIsSubmitting(true);
+
+    try {
+      const totalAmount = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+      const vendor = vendors.find(v => v.id === formData.vendorId);
+      const purchaseRef = doc(db, 'purchases', editingPurchase.id);
+
+      if (editingPurchase.status === 'received') {
+        // If already received, we MUST adjust material stock levels
+        await runTransaction(db, async (transaction) => {
+          // 1. Revert old stock additions
+          for (const oldItem of editingPurchase.items) {
+            if (oldItem.materialId) {
+              const materialRef = doc(db, 'materials', oldItem.materialId);
+              const matSnap = await transaction.get(materialRef);
+              if (matSnap.exists()) {
+                transaction.update(materialRef, {
+                  currentStock: increment(-oldItem.quantity)
+                });
+              }
+            }
+          }
+
+          // 2. Apply new stock additions
+          for (const newItem of formData.items) {
+            if (newItem.materialId) {
+              const materialRef = doc(db, 'materials', newItem.materialId);
+              const matSnap = await transaction.get(materialRef);
+              if (matSnap.exists()) {
+                transaction.update(materialRef, {
+                  currentStock: increment(newItem.quantity)
+                });
+              }
+            }
+          }
+
+          // 3. Update purchase document
+          transaction.update(purchaseRef, {
+            vendorId: formData.vendorId,
+            vendorName: vendor?.name || 'Unknown',
+            items: formData.items,
+            totalAmount,
+            note: formData.note,
+            updatedAt: serverTimestamp()
+          });
+
+          // 4. Log the correction in transactions (simplified)
+          const transRef = doc(collection(db, 'transactions'));
+          transaction.set(transRef, {
+            type: 'in', // Still a stock-in event, but a correction
+            quantity: 0,
+            unitPrice: 0,
+            totalAmount: 0,
+            timestamp: serverTimestamp(),
+            building: 'General Inventory',
+            userId: currentUser?.uid,
+            userName: currentUser?.displayName || 'System',
+            note: `Purchase Order ${editingPurchase.id} - Items Corrected (${vendor?.name})`
+          });
+        });
+      } else {
+        // Just update metadata if not received
+        await updateDoc(purchaseRef, {
+          vendorId: formData.vendorId,
+          vendorName: vendor?.name || 'Unknown',
+          items: formData.items,
+          totalAmount,
+          note: formData.note,
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      setShowAddForm(false);
+      setEditingPurchase(null);
+      setFormData({ vendorId: '', items: [], note: '' });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `purchases/${editingPurchase.id}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.items.length === 0) return;
-    setIsSubmitting(true);
+    
+    if (editingPurchase) {
+      await handleUpdate();
+      return;
+    }
 
+    setIsSubmitting(true);
     try {
       const totalAmount = formData.items.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
       const vendor = vendors.find(v => v.id === formData.vendorId);
@@ -282,6 +382,13 @@ export default function Purchases() {
                   </div>
                   
                   <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleEdit(purchase)}
+                      className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-xl transition-all"
+                      title="Edit Purchase Order"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
                     {deletingId === purchase.id ? (
                       <div className="flex items-center gap-2 bg-red-50 p-1 rounded-xl border border-red-100">
                         <span className="text-[10px] font-black text-red-600 uppercase tracking-widest px-2">Confirm?</span>
@@ -394,7 +501,11 @@ export default function Purchases() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setShowAddForm(false)}
+              onClick={() => {
+                setShowAddForm(false);
+                setEditingPurchase(null);
+                setFormData({ vendorId: '', items: [], note: '' });
+              }}
               className="absolute inset-0 bg-gray-900/60 backdrop-blur-xl"
             />
             <motion.div 
@@ -404,15 +515,23 @@ export default function Purchases() {
               className="bg-white rounded-[2.5rem] p-10 max-w-2xl w-full shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] relative border border-gray-100 overflow-y-auto max-h-[90vh]"
             >
               <button 
-                onClick={() => setShowAddForm(false)}
+                onClick={() => {
+                  setShowAddForm(false);
+                  setEditingPurchase(null);
+                  setFormData({ vendorId: '', items: [], note: '' });
+                }}
                 className="absolute right-8 top-8 p-3 hover:bg-gray-100 rounded-2xl text-gray-400 transition-all"
               >
                 <X className="w-5 h-5" />
               </button>
 
               <div className="mb-8">
-                <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight leading-none">New Purchase Order</h3>
-                <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">Create a record for incoming supplies</p>
+                <h3 className="text-2xl font-black text-gray-900 uppercase tracking-tight leading-none">
+                  {editingPurchase ? 'Edit Purchase Order' : 'New Purchase Order'}
+                </h3>
+                <p className="text-xs font-bold text-gray-400 mt-2 uppercase tracking-widest">
+                  {editingPurchase ? 'Modify order details and reconcile stock' : 'Create a record for incoming supplies'}
+                </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
@@ -557,7 +676,18 @@ export default function Purchases() {
                     className="w-full py-5 bg-gray-900 text-white rounded-[1.5rem] font-black uppercase tracking-widest hover:bg-gray-800 transition-all shadow-xl shadow-gray-200 flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
                   >
                     <Save className="w-5 h-5" />
-                    {isSubmitting ? 'Creating Order...' : 'Create Purchase Order'}
+                    {isSubmitting ? (editingPurchase ? 'Updating...' : 'Creating...') : (editingPurchase ? 'Update Purchase Order' : 'Create Purchase Order')}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAddForm(false);
+                      setEditingPurchase(null);
+                      setFormData({ vendorId: '', items: [], note: '' });
+                    }}
+                    className="w-full mt-4 py-4 text-[10px] font-black text-gray-400 uppercase tracking-widest hover:text-gray-600 transition-colors"
+                  >
+                    Cancel and Close
                   </button>
                 </div>
               </form>

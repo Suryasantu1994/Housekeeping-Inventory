@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { db, formatFirebaseTimestamp } from '../lib/firebase';
-import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, where } from 'firebase/firestore';
 import { Material, Transaction } from '../types';
 import { Search, Filter, ArrowUpRight, ArrowDownRight, Package, Calendar as CalendarIcon, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function StockLedger() {
+  const { profile: currentProfile } = useAuth();
   const [materials, setMaterials] = useState<Material[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedMaterial, setSelectedMaterial] = useState<string>('all');
@@ -21,8 +23,21 @@ export default function StockLedger() {
       setMaterials(data.sort((a, b) => a.name.localeCompare(b.name)));
     });
 
-    const qTransactions = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
-    const unsubscribeTransactions = onSnapshot(qTransactions, (snapshot) => {
+    const isAdmin = currentProfile?.role === 'admin';
+    const assignedBuildings = currentProfile?.assignedBuildings || [];
+
+    let qTransactions;
+    if (isAdmin) {
+      qTransactions = query(collection(db, 'transactions'), orderBy('timestamp', 'desc'));
+    } else if (assignedBuildings.length > 0) {
+      qTransactions = query(
+        collection(db, 'transactions'), 
+        where('building', 'in', assignedBuildings.slice(0, 10)),
+        orderBy('timestamp', 'desc')
+      );
+    }
+
+    const unsubscribeTransactions = qTransactions ? onSnapshot(qTransactions, (snapshot) => {
       const data: Transaction[] = snapshot.docs.map(doc => {
         const d = doc.data();
         return {
@@ -32,7 +47,10 @@ export default function StockLedger() {
         } as Transaction;
       });
       setTransactions(data);
-    });
+    }) : (() => {
+      setTransactions([]);
+      return () => {};
+    })();
 
     return () => {
       unsubscribeMaterials();
