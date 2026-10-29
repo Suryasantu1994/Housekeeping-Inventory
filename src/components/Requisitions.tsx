@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, increment, writeBatch, getDocs, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, serverTimestamp, updateDoc, doc, deleteDoc, increment, writeBatch, getDocs, where, runTransaction } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, formatFirebaseTimestamp } from '../lib/firebase';
 import { Requisition, RequisitionStatus, Material, RequisitionItem, Building } from '../types';
 import { FileText, Plus, Clock, CheckCircle2, XCircle, Trash2, User, Package, Building2, Minus, X, Pencil, Save } from 'lucide-react';
@@ -157,72 +157,84 @@ export default function Requisitions() {
 
   const updateStatus = async (id: string, status: RequisitionStatus) => {
     try {
-      const req = requisitions.find(r => r.id === id);
-      if (!req) return;
-
-      if (status === 'completed') {
-        // Process each item in the requisition
-        for (const item of req.items) {
-          const material = materials.find(m => m.id === item.materialId);
-          const materialRef = doc(db, 'materials', item.materialId);
-          
-          // Deduct stock
-          await updateDoc(materialRef, {
-            currentStock: increment(-item.quantity)
-          });
-
-          // Log transaction
-          await addDoc(collection(db, 'transactions'), {
-            materialId: item.materialId,
-            materialName: item.materialName,
-            quantity: item.quantity,
-            unitPrice: material?.unitPrice || 0,
-            totalAmount: item.quantity * (material?.unitPrice || 0),
-            type: 'out',
-            timestamp: serverTimestamp(),
-            building: req.building,
-            userId: currentUser?.uid,
-            userName: currentUser?.displayName || 'System',
-            note: `Requisition ${req.id} - ${req.building} (${req.requesterName})`
-          });
-        }
-      }
-
-      // Update the status
-      await updateDoc(doc(db, 'requisitions', id), { status });
-
-      // Create a notification for the staff member who raised the requisition
-      if (req.userId) {
-        let title = '';
-        let type: 'info' | 'success' | 'warning' | 'error' = 'info';
+      await runTransaction(db, async (transaction) => {
+        const reqRef = doc(db, 'requisitions', id);
+        const reqSnap = await transaction.get(reqRef);
         
-        switch (status) {
-          case 'approved':
-            title = 'Requisition Approved';
-            type = 'success';
-            break;
-          case 'rejected':
-            title = 'Requisition Rejected';
-            type = 'error';
-            break;
-          case 'completed':
-            title = 'Requisition Completed';
-            type = 'success';
-            break;
+        if (!reqSnap.exists()) return;
+        const req = reqSnap.data() as Requisition;
+
+        // Pre-read user profile for security rules
+        const userProfileRef = doc(db, 'userProfiles', currentUser?.uid || 'unknown');
+        await transaction.get(userProfileRef);
+
+        if (status === 'completed') {
+          // Process each item in the requisition
+          for (const item of req.items) {
+            const materialRef = doc(db, 'materials', item.materialId);
+            const materialSnap = await transaction.get(materialRef);
+            const material = materialSnap.data() as Material;
+            
+            // Deduct stock
+            transaction.update(materialRef, {
+              currentStock: increment(-item.quantity)
+            });
+
+            // Log transaction
+            const transRef = doc(collection(db, 'transactions'));
+            transaction.set(transRef, {
+              materialId: item.materialId,
+              materialName: item.materialName,
+              quantity: item.quantity,
+              unitPrice: material?.unitPrice || 0,
+              totalAmount: item.quantity * (material?.unitPrice || 0),
+              type: 'out',
+              timestamp: serverTimestamp(),
+              building: req.building,
+              userId: currentUser?.uid,
+              userName: currentUser?.displayName || 'System',
+              note: `Requisition ${id} - ${req.building} (${req.requesterName})`
+            });
+          }
         }
 
-        if (title) {
-          await addDoc(collection(db, 'notifications'), {
-            userId: req.userId,
-            title,
-            message: `Your requisition for ${req.building} has been ${status}.`,
-            type,
-            read: false,
-            timestamp: serverTimestamp(),
-            link: 'requisitions'
-          });
+        // Update the status
+        transaction.update(reqRef, { status });
+
+        // Create notification
+        if (req.userId) {
+          let title = '';
+          let type: 'info' | 'success' | 'warning' | 'error' = 'info';
+          
+          switch (status) {
+            case 'approved':
+              title = 'Requisition Approved';
+              type = 'success';
+              break;
+            case 'rejected':
+              title = 'Requisition Rejected';
+              type = 'error';
+              break;
+            case 'completed':
+              title = 'Requisition Completed';
+              type = 'success';
+              break;
+          }
+
+          if (title) {
+            const notifRef = doc(collection(db, 'notifications'));
+            transaction.set(notifRef, {
+              userId: req.userId,
+              title,
+              message: `Your requisition for ${req.building} has been ${status}.`,
+              type,
+              read: false,
+              timestamp: serverTimestamp(),
+              link: 'requisitions'
+            });
+          }
         }
-      }
+      });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `requisitions/${id}`);
     }

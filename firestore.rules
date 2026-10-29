@@ -2,117 +2,109 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
+    // Basic helpers
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isSystemAdmin() {
-      return isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin'
-      );
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getUserProfile() {
-      return get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data;
+    // Admin by email (God Mode) - No DB read needed
+    function isEmailAdmin() {
+      return isSignedIn() && request.auth.token.email == 'vkatakam@gitam.edu';
+    }
+
+    // Admin by role - Requires one DB read
+    function isRoleAdmin() {
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // General admin check
+    function isAdmin() {
+      return isEmailAdmin() || isRoleAdmin();
     }
 
     // User Profile Security
     match /userProfiles/{userId} {
-      // Users can always read/write their own profile.
-      // We check this FIRST to avoid recursion in the admin check.
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      // Owners can manage their own profile without recursion
+      allow read, create, update: if isOwner(userId);
       
-      // Admins can read and manage other profiles.
-      allow read, write: if isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin')
-      );
+      // Email Admin can manage all profiles
+      allow read, write: if isEmailAdmin();
+      
+      // Role-based Admins can manage others (short-circuit on isOwner to prevent recursion)
+      allow read, update, delete: if isSignedIn() && !isOwner(userId) && isRoleAdmin();
     }
 
     // Material validation
     match /materials/{materialId} {
       allow read: if isSignedIn();
-      allow write: if isSystemAdmin();
+      allow write: if isAdmin();
     }
 
     // Building validation
     match /buildings/{buildingId} {
       allow read: if isSignedIn();
-      allow write: if isSystemAdmin();
+      allow write: if isAdmin();
     }
 
     // Vendor validation
     match /vendors/{vendorId} {
       allow read: if isSignedIn();
-      allow write: if isSystemAdmin();
+      allow write: if isAdmin();
     }
 
     // Transaction validation
     match /transactions/{transactionId} {
       allow read: if isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin' ||
-          resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings
-        ))
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+         resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings)
       );
       allow create: if isSignedIn();
       allow update: if false;
-      allow delete: if isSystemAdmin();
+      allow delete: if isAdmin();
     }
 
     // Purchase validation
     match /purchases/{purchaseId} {
       allow read: if isSignedIn();
-      allow write: if isSystemAdmin();
+      allow write: if isAdmin();
     }
 
     // Requisition validation
     match /requisitions/{requisitionId} {
-      allow read: if isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin' ||
-          resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings
-        ))
+      allow read, update: if isSignedIn() && (
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+         resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings)
       );
       allow create: if isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin' ||
-          request.resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings
-        ))
+        isAdmin() ||
+        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
+         request.resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings)
       );
-      allow update: if isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && (
-          get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin' ||
-          resource.data.building in get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.assignedBuildings
-        ))
-      );
-      allow delete: if isSystemAdmin();
+      allow delete: if isAdmin();
     }
 
     // Notification validation
     match /notifications/{notificationId} {
       allow read: if isSignedIn() && (
-        request.auth.token.email == 'vkatakam@gitam.edu' ||
-        request.auth.uid == resource.data.userId ||
-        (exists(/databases/$(database)/documents/userProfiles/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/userProfiles/$(request.auth.uid)).data.role == 'admin')
+        isAdmin() ||
+        request.auth.uid == resource.data.userId
       );
       allow create: if isSignedIn();
-      allow update: if isSignedIn() && (
+      allow update, delete: if isSignedIn() && (
         request.auth.uid == resource.data.userId || 
-        request.auth.token.email == 'vkatakam@gitam.edu'
-      );
-      allow delete: if isSignedIn() && (
-        request.auth.uid == resource.data.userId || 
-        request.auth.token.email == 'vkatakam@gitam.edu'
+        isAdmin()
       );
     }
   }
 }
+
+
+

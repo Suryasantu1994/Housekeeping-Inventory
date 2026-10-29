@@ -22,7 +22,7 @@ import { useAuth } from '../contexts/AuthContext';
 type View = 'dashboard' | 'inventory' | 'history' | 'calendar' | 'requisitions' | 'vendors' | 'purchases' | 'ledger' | 'indent' | 'report' | 'settings';
 
 export default function Layout() {
-  const { user, profile, loading, signInWithGoogle, logout } = useAuth();
+  const { user, profile, loading, signingIn, signInWithGoogle, logout } = useAuth();
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [showAddForm, setShowAddForm] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -144,16 +144,26 @@ export default function Layout() {
           </motion.p>
           
           <motion.button
-            whileHover={{ scale: 1.02, backgroundColor: "#000000" }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: signingIn ? 1 : 1.02, backgroundColor: signingIn ? "#111827" : "#000000" }}
+            whileTap={{ scale: signingIn ? 1 : 0.98 }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
             onClick={signInWithGoogle}
-            className="w-full flex items-center justify-center gap-4 bg-gray-900 text-white py-4 px-6 rounded-2xl font-bold transition-all shadow-xl shadow-gray-200"
+            disabled={signingIn}
+            className="w-full flex items-center justify-center gap-4 bg-gray-900 text-white py-4 px-6 rounded-2xl font-bold transition-all shadow-xl shadow-gray-200 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <LogIn className="w-6 h-6" />
-            Continue with Google
+            {signingIn ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              <>
+                <LogIn className="w-6 h-6" />
+                Continue with Google
+              </>
+            )}
           </motion.button>
         </motion.div>
       </div>

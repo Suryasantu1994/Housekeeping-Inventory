@@ -8,6 +8,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  signingIn: boolean;
   signInWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null, 
   profile: null,
   loading: true,
+  signingIn: false,
   signInWithGoogle: async () => {},
   logout: async () => {}
 });
@@ -24,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     let unsubscribeProfile: (() => void) | null = null;
@@ -48,12 +51,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: isAdmin ? 'admin' : 'staff',
               assignedBuildings: [] // Admin gets all (logic in components), staff gets specific
             };
-            await setDoc(profileRef, newProfile);
-            setProfile(newProfile);
+            try {
+              await setDoc(profileRef, newProfile);
+              setProfile(newProfile);
+            } catch (err) {
+              console.error("Critical: Failed to create user profile after fetch:", err);
+            }
           }
           setLoading(false);
-        }, (error) => {
-          console.error("Error fetching profile for UID:", user.uid, "Error:", error);
+        }, (error: any) => {
+          if (error.code === 'permission-denied') {
+            console.error("Firestore Permission Denied for UID:", user.uid, " - Checking rules recursion or existence.");
+          } else {
+            console.error("Error fetching profile for UID:", user.uid, "Error:", error);
+          }
           setLoading(false);
         });
       } else {
@@ -69,11 +80,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signInWithGoogle = async () => {
+    if (signingIn) return;
+    setSigningIn(true);
     const provider = new GoogleAuthProvider();
     try {
       await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Error signing in with Google:", error);
+    } catch (error: any) {
+      if (error.code === 'auth/cancelled-popup-request' || error.code === 'auth/popup-closed-by-user') {
+        console.log("Sign in cancelled by user or multiple requests.");
+      } else {
+        console.error("Error signing in with Google:", error);
+      }
+    } finally {
+      setSigningIn(false);
     }
   };
 
@@ -86,7 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, signingIn, signInWithGoogle, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

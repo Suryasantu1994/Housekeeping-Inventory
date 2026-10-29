@@ -132,8 +132,13 @@ export default function Purchases() {
           const purchaseRef = doc(db, 'purchases', editingPurchase.id);
 
           // 2. DO ALL READS FIRST
-          const materialSnaps = await Promise.all(materialRefs.map(ref => transaction.get(ref)));
-          await transaction.get(purchaseRef);
+          // We read the user profile explicitly to ensure security rules (which check profile) don't trigger "read after write" error
+          const userProfileRef = doc(db, 'userProfiles', currentUser?.uid || 'unknown');
+          const [materialSnaps] = await Promise.all([
+            Promise.all(materialRefs.map(ref => transaction.get(ref))),
+            transaction.get(purchaseRef),
+            transaction.get(userProfileRef)
+          ]);
 
           // 3. NOW DO ALL WRITES
           // Revert old stock additions
@@ -251,10 +256,13 @@ export default function Purchases() {
         const purchaseRef = doc(db, 'purchases', purchase.id);
 
         // 2. DO ALL READS FIRST
-        // We must read the materials to get their current stock
-        // We also read the purchase just to be safe and follow strict read-before-write
-        const materialSnaps = await Promise.all(materialRefs.map(ref => transaction.get(ref)));
-        await transaction.get(purchaseRef);
+        // We read the user profile explicitly to ensure security rules (which check profile) don't trigger "read after write" error
+        const userProfileRef = doc(db, 'userProfiles', currentUser?.uid || 'unknown');
+        const [materialSnaps] = await Promise.all([
+          Promise.all(materialRefs.map(ref => transaction.get(ref))),
+          transaction.get(purchaseRef),
+          transaction.get(userProfileRef)
+        ]);
 
         // 3. NOW DO ALL WRITES
         transaction.update(purchaseRef, { 
