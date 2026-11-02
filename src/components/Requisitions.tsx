@@ -159,21 +159,34 @@ export default function Requisitions() {
     try {
       await runTransaction(db, async (transaction) => {
         const reqRef = doc(db, 'requisitions', id);
-        const reqSnap = await transaction.get(reqRef);
+        const userProfileRef = doc(db, 'userProfiles', currentUser?.uid || 'unknown');
+        
+        // 1. PERFORM ALL READS FIRST
+        // We read req and profile first
+        const [reqSnap] = await Promise.all([
+          transaction.get(reqRef),
+          transaction.get(userProfileRef)
+        ]);
         
         if (!reqSnap.exists()) return;
         const req = reqSnap.data() as Requisition;
 
-        // Pre-read user profile for security rules
-        const userProfileRef = doc(db, 'userProfiles', currentUser?.uid || 'unknown');
-        await transaction.get(userProfileRef);
+        let materialSnaps: any[] = [];
+        let materialRefs: any[] = [];
 
+        // If completing, we need to read all materials involved first
+        if (status === 'completed') {
+          materialRefs = req.items.map(item => doc(db, 'materials', item.materialId));
+          materialSnaps = await Promise.all(materialRefs.map(ref => transaction.get(ref)));
+        }
+
+        // 2. NOW PERFORM ALL WRITES
         if (status === 'completed') {
           // Process each item in the requisition
-          for (const item of req.items) {
-            const materialRef = doc(db, 'materials', item.materialId);
-            const materialSnap = await transaction.get(materialRef);
-            const material = materialSnap.data() as Material;
+          req.items.forEach((item, index) => {
+            const materialRef = materialRefs[index];
+            const materialSnap = materialSnaps[index];
+            const material = materialSnap?.data() as Material;
             
             // Deduct stock
             transaction.update(materialRef, {
@@ -195,7 +208,7 @@ export default function Requisitions() {
               userName: currentUser?.displayName || 'System',
               note: `Requisition ${id} - ${req.building} (${req.requesterName})`
             });
-          }
+          });
         }
 
         // Update the status
@@ -239,6 +252,7 @@ export default function Requisitions() {
       handleFirestoreError(error, OperationType.UPDATE, `requisitions/${id}`);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     try {
